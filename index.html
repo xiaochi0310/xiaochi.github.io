@@ -20,7 +20,7 @@
     <link rel="alternative" href="/atom.xml" title="小池的博客" type="application/atom+xml">
   
   
-    <link rel="icon" href="/photo/icon.jpg">
+    <link rel="icon" href="/photo/icon.png">
   
   <link rel="stylesheet" type="text/css" href="/./main.0cf68a.css">
   <style type="text/css">
@@ -66,10 +66,6 @@
     		
     			
     			<a q-on="click: openSlider(e, 'innerArchive')" href="javascript:void(0)">所有文章</a>
-    			
-            
-    			
-    			<a q-on="click: openSlider(e, 'friends')" href="javascript:void(0)">友链</a>
     			
             
     			
@@ -153,29 +149,31 @@
           <div id="js-content" class="content-ll">
             
   
-    <article id="post-my-first-blog" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+    <article id="post-Go-内存原理(六)-GC源码分析" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2021/05/08/my-first-blog/">my-first-blog</a>
+      <a class="article-title" href="/2021/02/22/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%85%AD)-GC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Go 内存管理(六)GC源码分析</a>
     </h1>
   
 
         
-        <a href="/2021/05/08/my-first-blog/" class="archive-article-date">
-  	<time datetime="2021-05-08T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-05-08</time>
+        <a href="/2021/02/22/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%85%AD)-GC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/" class="archive-article-date">
+  	<time datetime="2021-02-22T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-22</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>这是golang的一篇测试文章</p>
+        <p>本文介绍GC的源码分析(源码基于v1.14)</p>
+<h4 id="一、GC概述"><a href="#一、GC概述" class="headerlink" title="一、GC概述"></a>一、GC概述</h4><p>GC会扫描哪些地方存有指针，首先变量要么分配到栈中，要么分配在在堆中。我们在之前的Go语言内存管理章节中学习到了堆对应的bitmap每2bit会指出arena哪些地址存储了对象，对象是否包含指针；还有我们的mcentral中，也会分为包含指针的span(noscan)，不包含指针的span，这样的分类会减少标记的时间，提升标记的效率。对于栈来说，栈空间的指针信息都存储在函数中，使用1 bit表示一个指针大小的内存 (位于stackmap.bytedata)</p>
+<p>Go的GC是并行GC, 也就是GC的大部分处理和普通的go代码是同时运行的, 这让GO的GC流程比较复杂。</p>
         
-          <a class="article-more-a" href="/2021/05/08/my-first-blog/#more">more >></a>
+          <a class="article-more-a" href="/2021/02/22/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%85%AD)-GC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/#more">more >></a>
         
       
 
@@ -191,6 +189,10 @@
         		<li class="article-tag-list-item">
         			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
         		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
       		
 		</ul>
 	</div>
@@ -199,7 +201,339 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2021/05/08/my-first-blog/">展开全文 >></a>
+          <a class="article-more-a" href="/2021/02/22/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%85%AD)-GC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-内存原理(五)GC" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/">Go 内存管理(五)GC原理</a>
+    </h1>
+  
+
+        
+        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
+  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
+<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
+<p>GC的算法随着go语言版本的更新而不断变化</p>
+<blockquote>
+<p>goV1.3之前标记-清除(mark and sweep)算法</p>
+<p>goV1.5三色标记法</p>
+<p>goV1.8三色标记法+混合写屏障法</p>
+</blockquote>
+        
+          <a class="article-more-a" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-内存原理(四)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/">Go 内存管理(四)逃逸分析</a>
+    </h1>
+  
+
+        
+        <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" class="archive-article-date">
+  	<time datetime="2021-02-03T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-03</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>Golang什么情况下会申请堆内存，由什么决定的，学到堆内存一定会有这样的一个疑问…</p>
+<p>栈内存：一般由系统申请和释放。比如函数的入参、局部变量、返回值等</p>
+<p>堆内存：一般由程序员申请和释放(malloc/free new/delete等)。使用malloc关键字申请的内存就在堆内存，申请和释放要成对使用，否则会造成内存泄漏。对于Golang系统会自动回收已经不使用的堆内存，这就是GC的工作啦</p>
+        
+          <a class="article-more-a" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-内存原理(三)源码分析" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Go 内存管理(三)源码分析</a>
+    </h1>
+  
+
+        
+        <a href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/" class="archive-article-date">
+  	<time datetime="2021-01-29T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-29</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>学习了上2篇Go语言的内存管理的原理（一、TCMalloc原理<a target="_blank" rel="noopener" href="https://juejin.cn/post/6919005994966056968">https://juejin.cn/post/6919005994966056968</a>  二、Go内存管理原理<a target="_blank" rel="noopener" href="https://juejin.cn/post/6920485540391288839%EF%BC%89%E6%88%91%E4%BB%AC%E7%90%86%E8%A7%A3%E6%BA%90%E7%A0%81%E7%9A%84%E6%B5%81%E7%A8%8B%E5%B0%B1%E9%9D%9E%E5%B8%B8easy%E5%95%A6%E3%80%82">https://juejin.cn/post/6920485540391288839）我们理解源码的流程就非常easy啦。</a></p>
+<h3 id="一、结构体分析"><a href="#一、结构体分析" class="headerlink" title="一、结构体分析"></a>一、结构体分析</h3>
+        
+          <a class="article-more-a" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-内存原理(二)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/">Go 内存管理(二)内存管理原理</a>
+    </h1>
+  
+
+        
+        <a href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/" class="archive-article-date">
+  	<time datetime="2021-01-23T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-23</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="一、Golang内存管理的原理"><a href="#一、Golang内存管理的原理" class="headerlink" title="一、Golang内存管理的原理"></a>一、Golang内存管理的原理</h3><p>Golang的内存管理的核心思想就是完成类似预分配、内存池等操作，以避开系统调用带来的性能问题，防止每次分配内存都需要系统调用。</p>
+<p>下图是Golang内存管理流程图 PS：如果有什么错请各位大佬指正</p>
+<p><img src="/photo/bolgImg/1611300221997.png"></p>
+        
+          <a class="article-more-a" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/">展开全文 >></a>
         </p>
       
 
@@ -232,148 +566,33 @@
     <article id="post-Go-内存原理(一)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Go 内存管理(一)前言</p>
-<p>Go 内存管理(一)TCMalloc内存管理原理</p>
-<h5 id="一、TCMalloc"><a href="#一、TCMalloc" class="headerlink" title="一、TCMalloc"></a>一、TCMalloc</h5><p>Go内存管理是基于TCMalloc基础上进行设计的，所以在学习Go内存管理之前先学习TCMalloc原理</p>
-<p>TCMalloc(Thread Cache Malloc)是线程级别的内存管理模式。</p>
-<p>TCMalloc优势：</p>
-<p>1、速度快    </p>
-<p>2、减少锁竞争。对于小对象，只有在对应线程分配的空闲块不足的时候，才会使用到锁；对于大对象，TCMalloc尝试使用有效的自旋锁</p>
-<p>总结来说就是：最大化内存使用率，最小化分配时间。</p>
-<p><img src="C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1610590804111.png" alt="1610590804111"></p>
-<p>上图来自：<a target="_blank" rel="noopener" href="https://wallenwang.com/2018/11/tcmalloc/#ftoc-heading-16">https://wallenwang.com/2018/11/tcmalloc/#ftoc-heading-16</a></p>
-<p>本文也参考该文学习的，写的非常的详细，有兴趣的可以点击学习~（多像大佬学习）</p>
-<p>基本把这张图搞懂了，TCMalloc理解的也没啥问题了。</p>
-<p>~提醒，图从右开始看</p>
-<p><strong>图中一些名词的解释：</strong></p>
-<p>1、Pages </p>
-<p>Pages是TCMalloc管理的内存基本单位，默认大小是8KB</p>
-<p>2、span</p>
-<p>一个或者多个Pages组成一个span，TCMolloc以span为单位向系统申请内存。span是由PageHeap进行管理的，可以被拆分成多个相同的page size用于小对象使用；也可以作为一个整体被中大对象进行使用。</p>
-<p><img src="C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1610941978975.png" alt="1610941978975"></p>
-<p>申请内存，分裂span；回收内存，合并span。</p>
-<p>3、size class</p>
-<p>每一个size class都对应着不同空闲块的大小 ，例如8字节、16字节等。共有(1B~256KB)分为85个类别。</p>
-<p>4、ThreadCache </p>
-<p>为每个线程分配的单独申请的内存，申请和释放该区域内存的时候无需加锁。可以看到ThreadCache是由多个class组成的，不同class size 有单独的空闲链表。</p>
-<p>5、CentralCache</p>
-<p>当ThreadCache没有空闲对象的时候，会像CentralCache进行申请。CentralCache指的是所有线程公用的缓存，</p>
-<p>既然是线程公用的缓存，所以在申请的使用自旋锁。可以看到CentralCache也是以size class不同大小进行分类。</p>
-<p>6、PageHeap</p>
-<p>完成Page和span的映射。CentralCache内存不够时，会向PageHeap进行申请。PageHeap基本单位是span，CentralCache会将span拆分成size class大小进行使用。</p>
-<p>从图中可以看到PageHeap分成2种，小于等于128 list都按照链表来进行缓存管理；超过128的存储在一个有序的set。</p>
-<p>7、VirtualMemory</p>
-<p>虚拟内存，用户申请内存实际对虚拟内存进行申请。(而不是物理内存)</p>
-<h5 id="二、内存分配与回收"><a href="#二、内存分配与回收" class="headerlink" title="二、内存分配与回收"></a>二、内存分配与回收</h5><p>对照本文第一张图看更容易理解。</p>
-<p>1）小对象内存分配以及内存回收原理：（小对象大小：(0, 256KB]）</p>
-<p>分配：当一个线程申请内存的时候，将要分配的内存大小映射到对应的size class，(无需加锁)查看ThreadCache中size class对应的FreeList。若ThreadCache的FreeList有空闲对象，则返回一个空闲对象，分配结束；若ThreadCache没有空闲对象的时候，向CentralCache中对应的class size获取对象，CentralCache是所以线程共享的，所以需要自旋锁，若有可用对象，将分配的class size放到ThreadCache的FreeList中，返回对象，分配结束；如果CentralCache也没有可用的对象，向PageHeap申请一个span，将span拆分成class size放到CentralCache的freeList中。</p>
-<p>回收：根据申请内存地址计算页号，通过页号找到对应的span，通过span知道对应的size class，若没超过ThreadCache的阈值（2MB)，则使用垃圾回收机制移动到CentralCache</p>
-<p>2）中对象内存分配以及内存回收原理：（中对象大小：(256KB, 1MB])</p>
-<p>分配：在PageHeap中的span list顺序选择一个非空链表M(n个page)，然后按照内存大小将M分成2类，一种是满足大小的k个page,返回对象，分配结束。另外一种的n-k的page会继续放在n-kpage的span list中。<br>若PageHeap没有合适的空闲块时，就按照大对象内存分配进行分配</p>
-<p>回收：根据申请内存地址计算页号，通过页号找到对应的span，寻找到对应的span大小，进行回收</p>
-<p>3）大对象内存分配以及内存回收原理：（大对象大小：(1MB, +∞)）</p>
-<p>分配：在PageHeap中的span set，选取最新的span进行分配(n个page)，也是分成2类，一种是满足大小的k个page,返回对象，分配结束。另外一种的n-k的，若n-k&gt;128,将剩下的page放在span set中，其他会继续放在n-k个page的span list中。</p>
-<p>回收：根据申请内存地址计算页号，通过页号找到对应的span，寻找到对应的span大小，进行回收，若没有对应的大小，则继续放在span set中</p>
-<h5 id="三、内存碎片处理"><a href="#三、内存碎片处理" class="headerlink" title="三、内存碎片处理"></a>三、内存碎片处理</h5><p>内存碎片就是不能再分配给应用使用。分配内部碎片和外部碎片，内部碎片就是内部碎片是分配器分配的内存大于程序申请的内存，内部产生碎片；外部碎片就是内存块太小，不足以分配给应用使用。</p>
-<p>对于TCMalloc是怎么处理内部碎片和外部碎片的？</p>
-<p><strong>内部碎片</strong>：</p>
-<p>TCMalloc提前分配了多种size-class：8， 16， 32， 48， 64， 80， 96， 112， 128， 144， 160， 176…</p>
-<p>TCMalloc的目标就是产生最多12.5%的内存碎片。可以看到上面不是按照2的幂级数分配的大小，这是因为如果按照2的幂产生的碎片会更大。比如申请65字节，2幂申请的话会分配128，而按照TCMalloc只分配80，相应的减少了很多碎片。</p>
-<p>16字节以内，每8字节划分一个size class：8,16</p>
-<p>16~128字节，每16字节划分一个size class：32,48,64…</p>
-<p>128B~256字节，按照每次增加x/8进行增加：128+128/8=144 以此类推</p>
-<p>大于大于1024的 size-class 其实都以128对齐：</p>
-<p><strong>外部碎片</strong>：</p>
-<p>TCMalloc的CentralCache向PageHeap申请内存的时候，是以Page为单位进行申请的。当申请1024的时候，</p>
-<p>1page(8192)%1024=0没有内存碎片，当时当申请class-size为1152的时候（8192%1152=128）产生128的外部碎片，为了使得内存碎片率最多12.5%，可以多申请几个Page来解决。也就是合并相邻的Page，可以减少外部碎片。</p>
-<p>TCMalloc也考虑相同的class-size进行合并，这里的相同就是指分配的对象大小相同，取一个碎片更少的size进行使用。</p>
-<p>学习了TCMalloc的内存管理的原理，下一文我们学习Go语言的内存管理原理。</p>
-<blockquote>
-<p>参考文章</p>
-<p><a target="_blank" rel="noopener" href="http://blog.itpub.net/15480802/viewspace-1452219/">http://blog.itpub.net/15480802/viewspace-1452219/</a></p>
-<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/junlon2006/article/details/77854898">https://blog.csdn.net/junlon2006/article/details/77854898</a></p>
-<p><a target="_blank" rel="noopener" href="https://wallenwang.com/2018/11/tcmalloc/#ftoc-heading-16">https://wallenwang.com/2018/11/tcmalloc/#ftoc-heading-16</a></p>
-<p><a target="_blank" rel="noopener" href="http://www.360doc.com/content/13/0915/09/8363527_314549128.shtml">http://www.360doc.com/content/13/0915/09/8363527_314549128.shtml</a></p>
-<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/kelvin_yin/article/details/78997953">https://blog.csdn.net/kelvin_yin/article/details/78997953</a></p>
-</blockquote>
-
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2021/05/07/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-hello-world" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
       <header class="article-header">
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2021/05/07/hello-world/">Hello World</a>
+      <a class="article-title" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/">Go 内存管理(一)TCMalloc内存管理原理</a>
     </h1>
   
 
         
-        <a href="/2021/05/07/hello-world/" class="archive-article-date">
-  	<time datetime="2021-05-07T06:42:23.074Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-05-07</time>
+        <a href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/" class="archive-article-date">
+  	<time datetime="2021-01-18T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-18</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>Welcome to <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a target="_blank" rel="noopener" href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a target="_blank" rel="noopener" href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a target="_blank" rel="noopener" href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/writing.html">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
-
+        <h5 id="一、TCMalloc"><a href="#一、TCMalloc" class="headerlink" title="一、TCMalloc"></a>一、TCMalloc</h5><p>Go内存管理是基于TCMalloc基础上进行设计的，所以在学习Go内存管理之前先学习TCMalloc原理</p>
+<p>TCMalloc(Thread Cache Malloc)是线程级别的内存管理模式。</p>
+<p>TCMalloc优势：</p>
+<p>1、速度快    </p>
+<p>2、减少锁竞争。对于小对象，只有在对应线程分配的空闲块不足的时候，才会使用到锁；对于大对象，TCMalloc尝试使用有效的自旋锁</p>
+<p>总结来说就是：最大化内存使用率，最小化分配时间。</p>
+<p><img src="/photo/bolgImg/mem1.1.png"></p>
+        
+          <a class="article-more-a" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/#more">more >></a>
+        
       
 
       
@@ -381,11 +600,26 @@
     <div class="article-info article-info-index">
       
       
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
       
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2021/05/07/hello-world/">展开全文 >></a>
+          <a class="article-more-a" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/">展开全文 >></a>
         </p>
       
 
@@ -446,7 +680,7 @@
 		toc_hide_index: true,
 		root: "/",
 		innerArchive: true,
-		showTags: false
+		showTags: true
 	}
 </script>
 
@@ -469,25 +703,17 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
       
       
     
-      
-      
-      
-    
     
 
     <ul style="width: 70%">
     
     
       
-      <li style="width: 33.333333333333336%" q-on="click: openSlider(e, 'innerArchive')"><a href="javascript:void(0)" q-class="active:innerArchive">所有文章</a></li>
+      <li style="width: 50%" q-on="click: openSlider(e, 'innerArchive')"><a href="javascript:void(0)" q-class="active:innerArchive">所有文章</a></li>
       
         
       
-      <li style="width: 33.333333333333336%" q-on="click: openSlider(e, 'friends')"><a href="javascript:void(0)" q-class="active:friends">友链</a></li>
-      
-        
-      
-      <li style="width: 33.333333333333336%" q-on="click: openSlider(e, 'aboutme')"><a href="javascript:void(0)" q-class="active:aboutme">关于我</a></li>
+      <li style="width: 50%" q-on="click: openSlider(e, 'aboutme')"><a href="javascript:void(0)" q-class="active:aboutme">关于我</a></li>
       
         
     </ul>
@@ -509,6 +735,10 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
              
               <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color2">golang</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color5">内存管理</a>
               </li>
             
             <div class="clearfix"></div>
@@ -554,18 +784,6 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
     	</section>
     
 
-    
-    	<section class="tools-section tools-section-friends" q-show="friends">
-  		
-        <ul class="search-ul">
-          
-            <li class="search-li">
-              <a href="https://juejin.cn/user/4336129593318088" target="_blank" class="search-title"><i class="icon-quo-left icon"></i>掘金</a>
-            </li>
-          
-        </ul>
-  		
-    	</section>
     
 
     
