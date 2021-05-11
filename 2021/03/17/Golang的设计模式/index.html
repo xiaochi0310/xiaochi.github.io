@@ -6,21 +6,25 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://example.com">
-  <title>Go 内存管理(五)GC原理 | 小池的博客</title>
+  <title>Golang的设计模式 | 小池的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+  <meta name="description" content="一、设计模式1、是什么 设计模式(Design Pattern)是一套被反复使用、多数人知晓的、经过分类编目的、代码设计经验的总结，使用设计模式是为了可重用代码、让代码更容易被他人理解并且保证代码可靠性。  通俗来说：是一个项目的代码层面设计架构，代码功能的排版。相当于模板。这些模式都是巨人们在软件系统中总结出的成功的、能够实现可维护性复用的设计方案">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Go 内存管理(五)GC原理">
-<meta property="og:url" content="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/index.html">
+<meta property="og:title" content="Golang的设计模式">
+<meta property="og:url" content="http://example.com/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/index.html">
 <meta property="og:site_name" content="小池的博客">
-<meta property="og:description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+<meta property="og:description" content="一、设计模式1、是什么 设计模式(Design Pattern)是一套被反复使用、多数人知晓的、经过分类编目的、代码设计经验的总结，使用设计模式是为了可重用代码、让代码更容易被他人理解并且保证代码可靠性。  通俗来说：是一个项目的代码层面设计架构，代码功能的排版。相当于模板。这些模式都是巨人们在软件系统中总结出的成功的、能够实现可维护性复用的设计方案">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2021-02-19T06:40:47.000Z">
-<meta property="article:modified_time" content="2021-05-10T09:07:12.986Z">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1615951511175.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1615963041293.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/design.png">
+<meta property="article:published_time" content="2021-03-17T06:40:47.000Z">
+<meta property="article:modified_time" content="2021-05-11T03:53:59.521Z">
 <meta property="article:author" content="小池">
 <meta property="article:tag" content="golang">
-<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="设计模式">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/photo/bolgImg/1615951511175.png">
   
     <link rel="alternative" href="/atom.xml" title="小池的博客" type="application/atom+xml">
   
@@ -152,73 +156,125 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-Go-内存原理(五)GC" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-Golang的设计模式" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      Go 内存管理(五)GC原理
+      Golang的设计模式
     </h1>
   
 
         
-        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
-  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+        <a href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" class="archive-article-date">
+  	<time datetime="2021-03-17T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-17</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
-<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
-<p>GC的算法随着go语言版本的更新而不断变化</p>
-<blockquote>
-<p>goV1.3之前标记-清除(mark and sweep)算法</p>
-<p>goV1.5三色标记法</p>
-<p>goV1.8三色标记法+混合写屏障法</p>
+        <h3 id="一、设计模式"><a href="#一、设计模式" class="headerlink" title="一、设计模式"></a>一、设计模式</h3><h4 id="1、是什么"><a href="#1、是什么" class="headerlink" title="1、是什么"></a>1、是什么</h4><blockquote>
+<p>设计模式(Design Pattern)是一套被反复使用、多数人知晓的、经过分类编目的、代码设计经验的总结，使用设计模式是为了可重用代码、让代码更容易被他人理解并且保证代码可靠性。</p>
 </blockquote>
+<p>通俗来说：是一个项目的代码层面设计架构，代码功能的排版。相当于模板。这些模式都是巨人们在软件系统中总结出的成功的、能够实现可维护性复用的设计方案</p>
 <span id="more"></span>
 
-<p>我们将对以上算法进行原理剖析</p>
-<p>触发GC的条件：</p>
-<p>​    1）主动触发，用户代码中调用 runtime.GC 会主动触发 GC<br>​    2）默认每 2min 未产生 GC 时，golang 的守护协程 sysmon 会强制触发 GC<br>​    3）当 go 程序分配的内存增长超过阈值时，会触发 GC</p>
-<h4 id="二、标记-清除-mark-and-sweep-v1-3"><a href="#二、标记-清除-mark-and-sweep-v1-3" class="headerlink" title="二、标记-清除(mark-and-sweep)(v1.3)"></a>二、标记-清除(mark-and-sweep)(v1.3)</h4><h5 id="1、介绍"><a href="#1、介绍" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>从名字看就会有2个步骤，标记和清除</p>
-<p>​    1)  暂停程序运行(STW) 对可达的对象进行标记<br>​    2)  清除未标记的对象<br>​    3）停止暂停，程序继续</p>
-<p>引入STW(stop the world)是为了防止在标记过程中又发生了对象的引用，导致清除了正在使用的对象</p>
-<h5 id="2、优缺点"><a href="#2、优缺点" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>1）优点：简单<br>2）缺点：STW暂停程序，程序出现卡顿；标记需要扫描整个heap; 清除数据会产生碎片</p>
-<h4 id="三、三色标记-v1-5"><a href="#三、三色标记-v1-5" class="headerlink" title="三、三色标记(v1.5)"></a>三、三色标记(v1.5)</h4><h5 id="1、介绍-1"><a href="#1、介绍-1" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>在标记-清除方法上增加了中间状态：黑色-灰色-白色 以减少STW的时间</p>
-<p>黑色：已标记的对象，表示对象是跟对象的可达的</p>
-<p>灰色：被黑色引用的对象，灰色为标记过程的中间状态，当灰色对象全部标记为黑色表示标记阶段全部完成</p>
-<p>白色：未标记对象，在开始扫描时全部对象均为白色，若扫描完成后该节点还是白色，说明该对象不可达，在清除阶段会被清除</p>
-<p>最后，只有2中颜色，白色被清除，黑色被保留</p>
-<p><strong>过程</strong></p>
-<p>   1）开始时所有对象为白色<br>   2）将所有<strong>根对象</strong>标记为灰色，放入队列<br>   3）遍历灰色对象，将其标记为黑色，并将他们引用的对象标记为灰色，放入队列<br>   4）重复步骤 <em>3</em> 持续遍历灰色对象，直至队列为空<br>   5）此时只剩下黑色对象和白色对象，白色对象即为下一步需要清除的对象</p>
-<p>根对象指的是运行当前时刻的栈以及全局数据区域</p>
-<p>在三色标记中，减少了STW的时间。我们知道在三色标记中，增加了中间状态-灰色状态，这可以允许标记与用户代码并行执行，这里是怎么做到的呢，是因为三色标记加入了写屏障机制</p>
-<p>写屏障机制：黑色对象的内存槽有两种位置, 栈和堆. 栈空间的特点是容量小,但是要求相应速度快,因为函数调用弹出频繁使用, 所以“写屏障”机制,在<strong>栈空间的对象操作中不使用</strong>. 而仅仅使用在堆空间对象的操作中。写屏障简单来说也就是对于已标记的黑色对象（堆）由于并发特性添加了新对象(白色)，此时会触发写屏障，也就是会将添加的新对象标记为灰色，继续进行标记，最后标记完成后，刚刚标记的灰色也会变为黑色。这是对于堆而言。</p>
-<p>若对于栈中已标记的黑色对象由于并发特性添加了新对象(白色)。在所有的标记完成之后，可能对于栈上还会存在白色对象被引用的情况，这个时候需要STW重新扫描栈，标记栈上引用的白色对象为灰色，继续扫描标记为黑色。这次STW大约的时间在10~100ms间</p>
-<h5 id="2、优缺点-1"><a href="#2、优缺点-1" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><ol>
-<li> 优点：减少STW的时间</li>
-<li> 缺点：结束时需要STW来重新扫描栈，标记栈上引用的白色对象的存活</li>
-</ol>
-<h4 id="四、三色标记-混合写屏障法-v1-8"><a href="#四、三色标记-混合写屏障法-v1-8" class="headerlink" title="四、三色标记+混合写屏障法(v1.8)"></a>四、三色标记+混合写屏障法(v1.8)</h4><h5 id="1、介绍-2"><a href="#1、介绍-2" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>避免了对栈重新扫描的过程，极大的减少了STW的时间。当然屏障技术的使用还是在堆上，要保证栈上的运行效率</p>
-<p>​    1）GC开始将栈上的对象全部扫描并标记为黑色(之后不再进行第二次重复扫描，无需STW)<br>​    2）GC期间，任何在栈上创建的新对象，均为黑色<br>​    3）堆中被删除的对象标记为灰色(这里被删除是指的是删除引用关系)<br>​    4）堆中被添加的对象标记为灰色(这里被添加是指的是添加引用关系)</p>
-<p>可见混合屏障只需要在开始时并发扫描各个goroutine的栈，使其变黑并一直保持，这个过程不需要STW，而标记结束后，因为栈在扫描后始终是黑色的，也无需再进行re-scan操作了，减少了STW的时间</p>
-<h5 id="2、优缺点-2"><a href="#2、优缺点-2" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>几乎不需要STW的时间，效率更高</p>
-<h4 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h4><p>第一篇文章适合初次接触GC的童鞋阅读</p>
-<blockquote>
+<h4 id="2、作用"><a href="#2、作用" class="headerlink" title="2、作用"></a>2、作用</h4><p>使用了统一模板肯定会有很大的好处，都有哪些呢？</p>
 <ul>
-<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzAxMTA4Njc0OQ==&mid=2651439356&idx=2&sn=264a3141ea9a4b29fe67ec06a17aeb99&chksm=80bb1e0eb7cc97181b81ae731d0d425dda1e9a8d503ff75f217a0d77bd9d0eb451555cb584a0&scene=21#wechat_redirect">Golang三色标记、混合写屏障GC模式图文全分析</a> </p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/cfc669f83eaa">golang的gc原理</a></p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903917650722829">搞懂垃圾回收</a></p>
+<li>设计模式提供了一套通用的设计词汇和一种通用的形式来方便开发人员之间沟通和交流，使得设计方案更加通俗易懂</li>
+<li>设计模式增强了系统的可重用性、可扩展性、可维护性</li>
+<li>提高代码的易读性，有助于别人更快地理解系统</li>
+<li>有助于更加深入地理解面向对象思想</li>
+</ul>
+<h3 id="二、常用设计模式"><a href="#二、常用设计模式" class="headerlink" title="二、常用设计模式"></a>二、常用设计模式</h3><h4 id="1、简单工厂"><a href="#1、简单工厂" class="headerlink" title="1、简单工厂"></a>1、简单工厂</h4><h5 id="1）结构"><a href="#1）结构" class="headerlink" title="1）结构"></a>1）结构</h5><p><img src="/photo/bolgImg/1615951511175.png"></p>
+<ul>
+<li>工厂：创建对象，创建产品实例的内部逻辑，外部不感知。外部直接调用，创建所需的产品对象</li>
+<li>产品：所有对象的公共方法，也就是父类。内部方法只声明不定义。</li>
+<li>具体产品：具体产品的公共方法的具体实现。</li>
+</ul>
+<h5 id="2）使用场景"><a href="#2）使用场景" class="headerlink" title="2）使用场景"></a>2）使用场景</h5><ul>
+<li>工厂类负责创建的对象比较少，由于创建的对象较少，不会造成工厂方法中的业务逻辑太过复杂。</li>
+<li>客户端只知道传入工厂类的参数，对于如何创建对象并不关心</li>
+</ul>
+<h5 id="3）优点"><a href="#3）优点" class="headerlink" title="3）优点"></a>3）优点</h5><ul>
+<li>工厂类包含必要的判断逻辑，可以决定在什么时候创建哪一个产品类的实例，简单工厂模式实现了对象创建和使用的分离</li>
+</ul>
+<h5 id="4）缺点"><a href="#4）缺点" class="headerlink" title="4）缺点"></a>4）缺点</h5><ul>
+<li>由于工厂类集中了所有产品的创建逻辑，职责过重，一旦不能正常工作，整个系统都要受到影响</li>
+<li>系统扩展困难，一旦添加新产品需要修改工厂逻辑，在产品类型较多时，有可能造成工厂逻辑过于复杂，不利于系统的扩展和维护</li>
+</ul>
+<h5 id="5）代码"><a href="#5）代码" class="headerlink" title="5）代码"></a>5）代码</h5><p>笔工厂需要生产2种笔，铅笔(pencil)和圆珠笔(ballPen)，其均有书写功能。笔工厂生产具体产品铅笔，具体产品铅笔实现书写功能</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	pencil = <span class="literal">iota</span> <span class="comment">// 铅笔</span></span><br><span class="line">	ballPen <span class="comment">// 圆珠笔</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 文具工厂</span></span><br><span class="line"><span class="keyword">type</span> PenFactory <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// New不同的工厂实例，也就是具体产品。（铅笔、圆珠笔）</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *PenFactory)</span> <span class="title">New</span><span class="params">(typ <span class="keyword">int</span>)</span> <span class="title">Pen</span></span>&#123;</span><br><span class="line">	<span class="keyword">switch</span> typ &#123;</span><br><span class="line">	<span class="keyword">case</span> pencil:</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">new</span>(Pencil)</span><br><span class="line">	<span class="keyword">case</span> ballPen:</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">new</span>(BallPen)</span><br><span class="line">	<span class="keyword">default</span>:</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 产品，声明工厂所有产品的公共方法，放在具体产品来实现</span></span><br><span class="line"><span class="keyword">type</span> Pen <span class="keyword">interface</span> &#123;</span><br><span class="line">	Write()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 铅笔。具体产品</span></span><br><span class="line"><span class="keyword">type</span> Pencil <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="comment">// 公共方法的具体实现</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(*Pencil)</span> <span class="title">Write</span><span class="params">()</span></span> &#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;Pencil Writing&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 圆珠笔，具体产品</span></span><br><span class="line"><span class="keyword">type</span> BallPen <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="comment">// 公共方法的具体实现</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(*BallPen)</span> <span class="title">Write</span><span class="params">()</span></span> &#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;BallPen Writing&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> factory PenFactory</span><br><span class="line">	pen := factory.New(pencil) <span class="comment">// 使用工厂来生产一个具体产品，具体如何定义，用户不感知</span></span><br><span class="line">	pen.Write()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="2、工厂方法"><a href="#2、工厂方法" class="headerlink" title="2、工厂方法"></a>2、工厂方法</h4><h5 id="1）结构-1"><a href="#1）结构-1" class="headerlink" title="1）结构"></a>1）结构</h5><p><img src="/photo/bolgImg/1615963041293.png"></p>
+<ul>
+<li>工厂：不在实现创建所有的具体产品实例，只声明一个创建接口，具体初始化动作交给具体工厂</li>
+<li>具体工厂：实现工厂的方法，返回一个具体产品的实例</li>
+<li>产品：所有对象的公共方法，也就是父类。内部方法只声明不定义。</li>
+<li>具体产品：由具体工厂创建，实现父类方法</li>
+</ul>
+<h5 id="2）使用场景-1"><a href="#2）使用场景-1" class="headerlink" title="2）使用场景"></a>2）使用场景</h5><p>在工厂方法模式中，客户端不需要知道具体产品类的类名，只需要知道所对应的具体工厂即可，具体的产品对象由具体工厂类创建。</p>
+<h5 id="3）优点-1"><a href="#3）优点-1" class="headerlink" title="3）优点"></a>3）优点</h5><ul>
+<li>用户只需要关心所需产品对应的工厂，无须关心创建细节</li>
+<li>基于工厂角色和产品角色的多态性</li>
+<li>在系统中加入新产品时，只要添加一个具体工厂和具体产品就可以了，系统的可扩展性好</li>
+</ul>
+<h5 id="4）缺点-1"><a href="#4）缺点-1" class="headerlink" title="4）缺点"></a>4）缺点</h5><ul>
+<li>在添加新产品时，需要编写新的具体产品类，而且还要提供与之对应的具体工厂类，系统中类的个数将成对增加，在一定程度上增加了系统的复杂度，有更多的类需要编译和运行，会给系统带来一些额外的开销</li>
+</ul>
+<h5 id="5）代码-1"><a href="#5）代码-1" class="headerlink" title="5）代码"></a>5）代码</h5><p>笔工厂需要生产2种笔，铅笔(pencil)和圆珠笔(ballPen)，其均有书写功能。笔工厂生产具体工厂-铅笔工厂，铅笔工厂生产具体产品铅笔，具体产品实现书写功能</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 工厂，New由具体工厂实现</span></span><br><span class="line"><span class="keyword">type</span> PenFactory <span class="keyword">interface</span> &#123;</span><br><span class="line">	New() Pen</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 产品，所有具体产品的父类</span></span><br><span class="line"><span class="keyword">type</span> Pen <span class="keyword">interface</span> &#123;</span><br><span class="line">	Write()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 具体产品，圆珠笔</span></span><br><span class="line"><span class="keyword">type</span> BallPen <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(*BallPen)</span> <span class="title">Write</span><span class="params">()</span></span> &#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;BallPen Writing&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 具体产品工厂</span></span><br><span class="line"><span class="keyword">type</span> BallPenFactory <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(p *BallPenFactory)</span> <span class="title">New</span><span class="params">()</span> <span class="title">Pen</span></span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;create BallPen&quot;</span>)</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(BallPen)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 铅笔，具体产品</span></span><br><span class="line"><span class="keyword">type</span> Pencil <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(*Pencil)</span> <span class="title">Write</span><span class="params">()</span></span> &#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;Pencil Writing&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 具体产品工厂</span></span><br><span class="line"><span class="keyword">type</span> PencilFactory <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(p *PencilFactory)</span> <span class="title">New</span><span class="params">()</span> <span class="title">Pen</span></span> &#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;create Pencil&quot;</span>)</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(Pencil)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> factory PenFactory</span><br><span class="line">	factory = &amp;PencilFactory&#123;&#125; <span class="comment">// 生成一个具体产品</span></span><br><span class="line">	<span class="keyword">var</span> pen Pen</span><br><span class="line">	pen = factory.New()</span><br><span class="line">	pen.Write()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="3、抽象工厂"><a href="#3、抽象工厂" class="headerlink" title="3、抽象工厂"></a>3、抽象工厂</h4><h5 id="1）结构-2"><a href="#1）结构-2" class="headerlink" title="1）结构"></a>1）结构</h5><p><img src="/photo/bolgImg/design.png"></p>
+<p><a target="_blank" rel="noopener" href="https://blog.csdn.net/lovelion/article/details/9319423">本图选取于引用中的文章</a>，由于画的十分清晰，我们用这个图进行说明</p>
+<p>   ● 抽象工厂（AbstractFactory）：在抽象工厂中声明了多个具体工厂方法，用于创建不同类型的产品。可以看到，与第二节的工厂方法有所不同，该抽象工厂可以不止可以New一个具体产品，还可以生产一系列的产品族(A,B,C)，也就是抽象工厂实例具体工厂实例有创建这一系列产品的接口</p>
+<ul>
+<li><p>具体工厂（ConcreteFactory）：具体工厂实现了抽象工厂，每一个具体的工厂方法可以返回一个特定的产品对象。它实现了在抽象工厂中声明的创建产品的方法，生成一组具体产品(A,B,C)，这些产品构成了一个产品族</p>
+<p> ● 抽象产品（AbstractProduct）：它为每种产品声明接口，在抽象产品中声明了产品所具有的业务方法。</p>
+<p> ● 具体产品（ConcreteProduct）：它定义具体工厂生产的具体产品对象，实现抽象产品接口中声明的业务方法。</p>
 </li>
 </ul>
-</blockquote>
+<h5 id="2）使用场景-2"><a href="#2）使用场景-2" class="headerlink" title="2）使用场景"></a>2）使用场景</h5><p> 系统中有多于一个的产品族，而每次只使用其中某一产品族。</p>
+<h5 id="3）优点-2"><a href="#3）优点-2" class="headerlink" title="3）优点"></a>3）优点</h5><ul>
+<li><p>抽象工厂模式隔离了具体类的生成，使得客户并不需要知道哪些具体产品被创建</p>
+</li>
+<li><p>当一个产品族中的多个对象被设计成一起工作时，它能够保证客户端始终只使用同一个产品族中的对象</p>
+</li>
+<li><p>增加新的产品族很方便，无须修改已有系统，符合“开闭原则”</p>
+</li>
+</ul>
+<h5 id="4）缺点-2"><a href="#4）缺点-2" class="headerlink" title="4）缺点"></a>4）缺点</h5><ul>
+<li>增加新的产品等级结构麻烦，需要对原有系统进行较大的修改，甚至需要修改抽象层代码</li>
+</ul>
+<h5 id="5）代码-2"><a href="#5）代码-2" class="headerlink" title="5）代码"></a>5）代码</h5><p>皮肤库有Spring、Summer风格。Spring风格有浅绿色按钮、绿色文本框。Summer风格有浅蓝色按钮、浅蓝色文本框。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//界面皮肤工厂接口：抽象工厂</span></span><br><span class="line"><span class="keyword">type</span> SkinFactory <span class="keyword">interface</span>  &#123;</span><br><span class="line">	createButton() Button</span><br><span class="line">	createTextField() TextField</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 抽象产品1</span></span><br><span class="line"><span class="keyword">type</span> Button <span class="keyword">interface</span>&#123;</span><br><span class="line">	display();</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 抽象产品2</span></span><br><span class="line"><span class="keyword">type</span> TextField <span class="keyword">interface</span>&#123;</span><br><span class="line">	write();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 具体产品1</span></span><br><span class="line"><span class="keyword">type</span> SpringButton <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SpringButton)</span><span class="title">display</span><span class="params">()</span></span>&#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;SpringButton display&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 具体产品2</span></span><br><span class="line"><span class="keyword">type</span> SpringTextField <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SpringTextField)</span><span class="title">write</span><span class="params">()</span></span>&#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;SpringTextField write&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 具体产品3</span></span><br><span class="line"><span class="keyword">type</span> SummerTextField <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SummerTextField)</span><span class="title">write</span><span class="params">()</span></span>&#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;SummerTextField write&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 具体产品4</span></span><br><span class="line"><span class="keyword">type</span> SummerButton <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SummerButton)</span><span class="title">display</span><span class="params">()</span></span>&#123;</span><br><span class="line">	fmt.Println(<span class="string">&quot;SummerButton display&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">//Spring皮肤工厂：具体工厂</span></span><br><span class="line"><span class="keyword">type</span> SpringSkinFactory <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="comment">// 创建具体产品1</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SpringSkinFactory)</span> <span class="title">createButton</span><span class="params">()</span> <span class="title">Button</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(SpringButton)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 创建具体产品2</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SpringSkinFactory)</span> <span class="title">createTextField</span><span class="params">()</span> <span class="title">TextField</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(SpringTextField)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//Summer皮肤工厂：具体工厂</span></span><br><span class="line"><span class="keyword">type</span> SummerSkinFactory <span class="keyword">struct</span> &#123;&#125;</span><br><span class="line"><span class="comment">// 创建具体产品3</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SummerSkinFactory)</span> <span class="title">createButton</span><span class="params">()</span> <span class="title">Button</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(SummerButton)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 创建具体产品4</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *SummerSkinFactory)</span> <span class="title">createTextField</span><span class="params">()</span> <span class="title">TextField</span></span> &#123;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">new</span>(SummerTextField)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> skinFactory SkinFactory</span><br><span class="line">	skinFactory = &amp;SummerSkinFactory&#123;&#125; <span class="comment">// 创建一个产品族（具体产品3，具体产品4）</span></span><br><span class="line">    but := skinFactory.createButton() <span class="comment">// 创建某一个产品（具体产品3）</span></span><br><span class="line">	but.display()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">C:\Users\Administrator\AppData\Local\Temp\___go_build_xctest2_main.exe #gosetup</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">SummerButton display</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="4、单例"><a href="#4、单例" class="headerlink" title="4、单例"></a>4、单例</h4><h5 id="1）结构-3"><a href="#1）结构-3" class="headerlink" title="1）结构"></a>1）结构</h5><p>单例模式(Singleton Pattern)：确保某一个类只有一个实例，而且自行实例化并向整个系统提供这个实例，这个类称为单例类，它提供全局访问的方法。比如数据库连接、资源配置。</p>
+<p>常见有2种模式：饿汉模式、懒汉模式</p>
+<ul>
+<li>饿汉模式：在程序初始化的时候实例化对象，无需考虑多线程问题。golang里面的<code>init</code>接口</li>
+<li>懒汉模式：单例在第一次使用时创建，无须一直占用系统资源，实现了延迟加载，但是必须处理好多个线程同时访问的问题。需要考虑的是多线程并发调用而导致的会创建多个实例的问题，需要用到互斥锁。golang语言常用<code>sync.once</code>实现懒汉模式，<code>sync.once</code>自带互斥锁</li>
+</ul>
+<h5 id="2）使用场景-3"><a href="#2）使用场景-3" class="headerlink" title="2）使用场景"></a>2）使用场景</h5><ul>
+<li>系统只需要一个实例对象，如系统要求提供一个唯一的序列号生成器或资源管理器，或者需要考虑资源消耗太大而只允许创建一个对象</li>
+</ul>
+<h5 id="3）优点-3"><a href="#3）优点-3" class="headerlink" title="3）优点"></a>3）优点</h5><ul>
+<li> 由于在系统内存中只存在一个对象，因此可以节约系统资源，对于一些需要频繁创建和销毁的对象单例模式无疑可以提高系统的性能。</li>
+</ul>
+<h5 id="4）缺点-3"><a href="#4）缺点-3" class="headerlink" title="4）缺点"></a>4）缺点</h5><ul>
+<li><p>单例类的职责过重，在一定程度上违背了“单一职责原则”。因为单例类既充当了工厂角色，提供了工厂方法，同时又充当了产品角色，包含一些业务方法，将产品的创建和产品的本身的功能融合到一起</p>
+</li>
+<li><p>golang运行环境都提供了自动垃圾回收的技术，因此，如果实例化的共享对象长时间不被利用，系统会认为它是垃圾，会自动销毁并回收资源，下次利用时又将重新实例化，这将导致共享的单例对象状态的丢失</p>
+</li>
+</ul>
+<h5 id="5）代码-3"><a href="#5）代码-3" class="headerlink" title="5）代码"></a>5）代码</h5><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> once sync.Once</span><br><span class="line">	onceBody := <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		fmt.Println(<span class="string">&quot;Only once&quot;</span>) <span class="comment">// 这里可以是数据库连接、初始化等功能</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++ &#123;</span><br><span class="line">		once.Do(onceBody)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">Only once</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h3><ul>
+<li>墙裂推荐！<a target="_blank" rel="noopener" href="https://blog.csdn.net/lovelion/article/details/17517213/">设计模式全套</a></li>
+</ul>
 
       
 
@@ -257,7 +313,7 @@
         		</li>
       		 
         		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">设计模式</a>
         		</li>
       		
 		</ul>
@@ -313,7 +369,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" alt="微信分享二维码">
+      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -327,18 +383,18 @@
   
 <nav id="article-nav">
   
-    <a href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2021/03/23/Go-make%E5%92%8Cnew%E7%9A%84%E5%8C%BA%E5%88%AB/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          从一个Go案例来了解僵尸进程
+          Go-make和new的区别
         
       </div>
     </a>
   
   
-    <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">Go 内存管理(四)逃逸分析</div>
+    <a href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">从一个Go案例来了解孤儿进程</div>
       <i class="icon-circle-right"></i>
     </a>
   
@@ -365,7 +421,7 @@
                 </span>
                 <span class="tooltip-content">
                     <div class="toc-article">
-                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81GC"><span class="toc-number">1.</span> <span class="toc-text">一、GC</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%A0%87%E8%AE%B0-%E6%B8%85%E9%99%A4-mark-and-sweep-v1-3"><span class="toc-number">2.</span> <span class="toc-text">二、标记-清除(mark-and-sweep)(v1.3)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D"><span class="toc-number">2.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">2.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-v1-5"><span class="toc-number">3.</span> <span class="toc-text">三、三色标记(v1.5)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-1"><span class="toc-number">3.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-1"><span class="toc-number">3.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-%E6%B7%B7%E5%90%88%E5%86%99%E5%B1%8F%E9%9A%9C%E6%B3%95-v1-8"><span class="toc-number">4.</span> <span class="toc-text">四、三色标记+混合写屏障法(v1.8)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-2"><span class="toc-number">4.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-2"><span class="toc-number">4.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%95%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">引用</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="toc-number">1.</span> <span class="toc-text">一、设计模式</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1%E3%80%81%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-number">1.1.</span> <span class="toc-text">1、是什么</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2%E3%80%81%E4%BD%9C%E7%94%A8"><span class="toc-number">1.2.</span> <span class="toc-text">2、作用</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%B8%B8%E7%94%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">二、常用设计模式</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1%E3%80%81%E7%AE%80%E5%8D%95%E5%B7%A5%E5%8E%82"><span class="toc-number">2.1.</span> <span class="toc-text">1、简单工厂</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%EF%BC%89%E7%BB%93%E6%9E%84"><span class="toc-number">2.1.1.</span> <span class="toc-text">1）结构</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%EF%BC%89%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">2.1.2.</span> <span class="toc-text">2）使用场景</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#3%EF%BC%89%E4%BC%98%E7%82%B9"><span class="toc-number">2.1.3.</span> <span class="toc-text">3）优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#4%EF%BC%89%E7%BC%BA%E7%82%B9"><span class="toc-number">2.1.4.</span> <span class="toc-text">4）缺点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#5%EF%BC%89%E4%BB%A3%E7%A0%81"><span class="toc-number">2.1.5.</span> <span class="toc-text">5）代码</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2%E3%80%81%E5%B7%A5%E5%8E%82%E6%96%B9%E6%B3%95"><span class="toc-number">2.2.</span> <span class="toc-text">2、工厂方法</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%EF%BC%89%E7%BB%93%E6%9E%84-1"><span class="toc-number">2.2.1.</span> <span class="toc-text">1）结构</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%EF%BC%89%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF-1"><span class="toc-number">2.2.2.</span> <span class="toc-text">2）使用场景</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#3%EF%BC%89%E4%BC%98%E7%82%B9-1"><span class="toc-number">2.2.3.</span> <span class="toc-text">3）优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#4%EF%BC%89%E7%BC%BA%E7%82%B9-1"><span class="toc-number">2.2.4.</span> <span class="toc-text">4）缺点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#5%EF%BC%89%E4%BB%A3%E7%A0%81-1"><span class="toc-number">2.2.5.</span> <span class="toc-text">5）代码</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3%E3%80%81%E6%8A%BD%E8%B1%A1%E5%B7%A5%E5%8E%82"><span class="toc-number">2.3.</span> <span class="toc-text">3、抽象工厂</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%EF%BC%89%E7%BB%93%E6%9E%84-2"><span class="toc-number">2.3.1.</span> <span class="toc-text">1）结构</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%EF%BC%89%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF-2"><span class="toc-number">2.3.2.</span> <span class="toc-text">2）使用场景</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#3%EF%BC%89%E4%BC%98%E7%82%B9-2"><span class="toc-number">2.3.3.</span> <span class="toc-text">3）优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#4%EF%BC%89%E7%BC%BA%E7%82%B9-2"><span class="toc-number">2.3.4.</span> <span class="toc-text">4）缺点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#5%EF%BC%89%E4%BB%A3%E7%A0%81-2"><span class="toc-number">2.3.5.</span> <span class="toc-text">5）代码</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4%E3%80%81%E5%8D%95%E4%BE%8B"><span class="toc-number">2.4.</span> <span class="toc-text">4、单例</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%EF%BC%89%E7%BB%93%E6%9E%84-3"><span class="toc-number">2.4.1.</span> <span class="toc-text">1）结构</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%EF%BC%89%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF-3"><span class="toc-number">2.4.2.</span> <span class="toc-text">2）使用场景</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#3%EF%BC%89%E4%BC%98%E7%82%B9-3"><span class="toc-number">2.4.3.</span> <span class="toc-text">3）优点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#4%EF%BC%89%E7%BC%BA%E7%82%B9-3"><span class="toc-number">2.4.4.</span> <span class="toc-text">4）缺点</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#5%EF%BC%89%E4%BB%A3%E7%A0%81-3"><span class="toc-number">2.4.5.</span> <span class="toc-text">5）代码</span></a></li></ol></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BC%95%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">引用</span></a></li></ol>
                     </div>
                 </span>
             </div>
@@ -379,7 +435,7 @@
   
   <div class="duoshuo">
 	<!-- 多说评论框 start -->
-	<div class="ds-thread" data-thread-key="Go-内存原理(五)GC" data-title="Go 内存管理(五)GC原理" data-url="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/"></div>
+	<div class="ds-thread" data-thread-key="Golang的设计模式" data-title="Golang的设计模式" data-url="http://example.com/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/"></div>
 	<!-- 多说评论框 end -->
 	<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 	<script type="text/javascript">

@@ -6,21 +6,23 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://example.com">
-  <title>Go 内存管理(五)GC原理 | 小池的博客</title>
+  <title>从一个Go案例来了解孤儿进程 | 小池的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+  <meta name="description" content="本文从一个Golang案例学习孤儿进程的主要内容 僵尸进程在这 一、案例main进程创建一个bash子进程，子进程存活10s退出，main进程睡20s退出">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Go 内存管理(五)GC原理">
-<meta property="og:url" content="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/index.html">
+<meta property="og:title" content="从一个Go案例来了解孤儿进程">
+<meta property="og:url" content="http://example.com/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/index.html">
 <meta property="og:site_name" content="小池的博客">
-<meta property="og:description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+<meta property="og:description" content="本文从一个Golang案例学习孤儿进程的主要内容 僵尸进程在这 一、案例main进程创建一个bash子进程，子进程存活10s退出，main进程睡20s退出">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2021-02-19T06:40:47.000Z">
-<meta property="article:modified_time" content="2021-05-10T09:07:12.986Z">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1614762356822.png">
+<meta property="article:published_time" content="2021-03-08T06:40:47.000Z">
+<meta property="article:modified_time" content="2021-05-11T04:00:58.020Z">
 <meta property="article:author" content="小池">
 <meta property="article:tag" content="golang">
-<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="进程">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/photo/bolgImg/1614762356822.png">
   
     <link rel="alternative" href="/atom.xml" title="小池的博客" type="application/atom+xml">
   
@@ -152,73 +154,50 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-Go-内存原理(五)GC" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-从一个Go案例了解孤儿进程1" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      Go 内存管理(五)GC原理
+      从一个Go案例来了解孤儿进程
     </h1>
   
 
         
-        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
-  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+        <a href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/" class="archive-article-date">
+  	<time datetime="2021-03-08T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-08</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
-<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
-<p>GC的算法随着go语言版本的更新而不断变化</p>
-<blockquote>
-<p>goV1.3之前标记-清除(mark and sweep)算法</p>
-<p>goV1.5三色标记法</p>
-<p>goV1.8三色标记法+混合写屏障法</p>
-</blockquote>
+        <p>本文从一个Golang案例学习孤儿进程的主要内容</p>
+<p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6931990188029804552">僵尸进程在这</a></p>
+<h5 id="一、案例"><a href="#一、案例" class="headerlink" title="一、案例"></a>一、案例</h5><p>main进程创建一个bash子进程，子进程存活10s退出，main进程睡20s退出</p>
 <span id="more"></span>
 
-<p>我们将对以上算法进行原理剖析</p>
-<p>触发GC的条件：</p>
-<p>​    1）主动触发，用户代码中调用 runtime.GC 会主动触发 GC<br>​    2）默认每 2min 未产生 GC 时，golang 的守护协程 sysmon 会强制触发 GC<br>​    3）当 go 程序分配的内存增长超过阈值时，会触发 GC</p>
-<h4 id="二、标记-清除-mark-and-sweep-v1-3"><a href="#二、标记-清除-mark-and-sweep-v1-3" class="headerlink" title="二、标记-清除(mark-and-sweep)(v1.3)"></a>二、标记-清除(mark-and-sweep)(v1.3)</h4><h5 id="1、介绍"><a href="#1、介绍" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>从名字看就会有2个步骤，标记和清除</p>
-<p>​    1)  暂停程序运行(STW) 对可达的对象进行标记<br>​    2)  清除未标记的对象<br>​    3）停止暂停，程序继续</p>
-<p>引入STW(stop the world)是为了防止在标记过程中又发生了对象的引用，导致清除了正在使用的对象</p>
-<h5 id="2、优缺点"><a href="#2、优缺点" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>1）优点：简单<br>2）缺点：STW暂停程序，程序出现卡顿；标记需要扫描整个heap; 清除数据会产生碎片</p>
-<h4 id="三、三色标记-v1-5"><a href="#三、三色标记-v1-5" class="headerlink" title="三、三色标记(v1.5)"></a>三、三色标记(v1.5)</h4><h5 id="1、介绍-1"><a href="#1、介绍-1" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>在标记-清除方法上增加了中间状态：黑色-灰色-白色 以减少STW的时间</p>
-<p>黑色：已标记的对象，表示对象是跟对象的可达的</p>
-<p>灰色：被黑色引用的对象，灰色为标记过程的中间状态，当灰色对象全部标记为黑色表示标记阶段全部完成</p>
-<p>白色：未标记对象，在开始扫描时全部对象均为白色，若扫描完成后该节点还是白色，说明该对象不可达，在清除阶段会被清除</p>
-<p>最后，只有2中颜色，白色被清除，黑色被保留</p>
-<p><strong>过程</strong></p>
-<p>   1）开始时所有对象为白色<br>   2）将所有<strong>根对象</strong>标记为灰色，放入队列<br>   3）遍历灰色对象，将其标记为黑色，并将他们引用的对象标记为灰色，放入队列<br>   4）重复步骤 <em>3</em> 持续遍历灰色对象，直至队列为空<br>   5）此时只剩下黑色对象和白色对象，白色对象即为下一步需要清除的对象</p>
-<p>根对象指的是运行当前时刻的栈以及全局数据区域</p>
-<p>在三色标记中，减少了STW的时间。我们知道在三色标记中，增加了中间状态-灰色状态，这可以允许标记与用户代码并行执行，这里是怎么做到的呢，是因为三色标记加入了写屏障机制</p>
-<p>写屏障机制：黑色对象的内存槽有两种位置, 栈和堆. 栈空间的特点是容量小,但是要求相应速度快,因为函数调用弹出频繁使用, 所以“写屏障”机制,在<strong>栈空间的对象操作中不使用</strong>. 而仅仅使用在堆空间对象的操作中。写屏障简单来说也就是对于已标记的黑色对象（堆）由于并发特性添加了新对象(白色)，此时会触发写屏障，也就是会将添加的新对象标记为灰色，继续进行标记，最后标记完成后，刚刚标记的灰色也会变为黑色。这是对于堆而言。</p>
-<p>若对于栈中已标记的黑色对象由于并发特性添加了新对象(白色)。在所有的标记完成之后，可能对于栈上还会存在白色对象被引用的情况，这个时候需要STW重新扫描栈，标记栈上引用的白色对象为灰色，继续扫描标记为黑色。这次STW大约的时间在10~100ms间</p>
-<h5 id="2、优缺点-1"><a href="#2、优缺点-1" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><ol>
-<li> 优点：减少STW的时间</li>
-<li> 缺点：结束时需要STW来重新扫描栈，标记栈上引用的白色对象的存活</li>
-</ol>
-<h4 id="四、三色标记-混合写屏障法-v1-8"><a href="#四、三色标记-混合写屏障法-v1-8" class="headerlink" title="四、三色标记+混合写屏障法(v1.8)"></a>四、三色标记+混合写屏障法(v1.8)</h4><h5 id="1、介绍-2"><a href="#1、介绍-2" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>避免了对栈重新扫描的过程，极大的减少了STW的时间。当然屏障技术的使用还是在堆上，要保证栈上的运行效率</p>
-<p>​    1）GC开始将栈上的对象全部扫描并标记为黑色(之后不再进行第二次重复扫描，无需STW)<br>​    2）GC期间，任何在栈上创建的新对象，均为黑色<br>​    3）堆中被删除的对象标记为灰色(这里被删除是指的是删除引用关系)<br>​    4）堆中被添加的对象标记为灰色(这里被添加是指的是添加引用关系)</p>
-<p>可见混合屏障只需要在开始时并发扫描各个goroutine的栈，使其变黑并一直保持，这个过程不需要STW，而标记结束后，因为栈在扫描后始终是黑色的，也无需再进行re-scan操作了，减少了STW的时间</p>
-<h5 id="2、优缺点-2"><a href="#2、优缺点-2" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>几乎不需要STW的时间，效率更高</p>
-<h4 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h4><p>第一篇文章适合初次接触GC的童鞋阅读</p>
-<blockquote>
-<ul>
-<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzAxMTA4Njc0OQ==&mid=2651439356&idx=2&sn=264a3141ea9a4b29fe67ec06a17aeb99&chksm=80bb1e0eb7cc97181b81ae731d0d425dda1e9a8d503ff75f217a0d77bd9d0eb451555cb584a0&scene=21#wechat_redirect">Golang三色标记、混合写屏障GC模式图文全分析</a> </p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/cfc669f83eaa">golang的gc原理</a></p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903917650722829">搞懂垃圾回收</a></p>
-</li>
-</ul>
-</blockquote>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">&quot;fmt&quot;</span></span><br><span class="line">	<span class="string">&quot;os&quot;</span></span><br><span class="line">	<span class="string">&quot;time&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	name := <span class="string">&quot;/bin/bash&quot;</span> <span class="comment">// 要运行的进程</span></span><br><span class="line">    <span class="comment">// 子进程的主要动作  -c 表示后续所有字符串当做完成指令来执行</span></span><br><span class="line">	argv := []<span class="keyword">string</span>&#123;name,<span class="string">&quot;-c&quot;</span>,<span class="string">`sleep 100 &amp;&amp; echo &quot;child: exit&quot;`</span>&#125;</span><br><span class="line">	attr := &amp;os.ProcAttr&#123;</span><br><span class="line">		Dir:   <span class="string">&quot;/tmp&quot;</span>,  <span class="comment">// 新进程的工作目录</span></span><br><span class="line">		Env:os.Environ(), <span class="comment">// 新进程的环境变量列表</span></span><br><span class="line">		Files: []*os.File&#123;os.Stdin, os.Stdout, os.Stderr&#125;, <span class="comment">// 对应标准输入，标准输出和标准错误输出,若为nil,表示该进程启动时file是关闭的</span></span><br><span class="line"></span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 创建一个子进程</span></span><br><span class="line">	pro,err := os.StartProcess(name,argv,attr)</span><br><span class="line">	<span class="keyword">if</span> err!=<span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="built_in">panic</span>(err)</span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 打印相关信息</span></span><br><span class="line">	fmt.Printf(<span class="string">&quot;parent pid is: %d,chile pid is: %d&quot;</span>,os.Getpid(),pro.Pid)</span><br><span class="line">    <span class="comment">// 主进程睡30s 后退出</span></span><br><span class="line">	time.Sleep(<span class="number">30</span>*time.Second)</span><br><span class="line">	fmt.Println(<span class="string">&quot;parent out!!&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>启动一个子进程，os包自带StartProcess创建子进程 API</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">StartProcess</span><span class="params">(name <span class="keyword">string</span>, argv []<span class="keyword">string</span>, attr *ProcAttr)</span> <span class="params">(*Process, error)</span></span> &#123;</span><br><span class="line">	testlog.Open(name)</span><br><span class="line">	<span class="keyword">return</span> startProcess(name, argv, attr)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 该函数可以调用或启动外部系统命令和二进制可执行文件；它的第一个参数是要运行的进程，第二个参数用来传递选项或参数，第三个参数是含有系统环境基本信息的结构体</span></span><br><span class="line"><span class="comment">// 函数返回被启动进程的 id（pid），或者启动失败返回错误</span></span><br></pre></td></tr></table></figure>
+
+<p>我们在linux环境下运行该代码</p>
+<h5 id="二、结果分析"><a href="#二、结果分析" class="headerlink" title="二、结果分析"></a>二、结果分析</h5><p><img src="/photo/bolgImg/1614762356822.png"></p>
+<p>从上面的打印看出：主进程PID：13642，子进程PID：13647；主进程30s退出，但此时子进程是存活状态(sleep)，所以该子进程是孤儿进程状态，会由init进程(PID=1)来处理</p>
+<p>同时我们查看进程的相关信息，打印进程的状态、父进程、子进程以及运行命令。分析如下：</p>
+<p>1、主进程与子进程同时存活</p>
+<p>查看子进程13647的状态，可以看代父进程是13642</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[centos@wunaichi ~]$ <span class="built_in">cd</span> /proc/13647</span><br><span class="line">[centos@xxxx 13647]$ cat status </span><br><span class="line">Name:	bash</span><br><span class="line">Umask:	0002</span><br><span class="line">State:	S (sleeping)</span><br><span class="line">Tgid:	13647</span><br><span class="line">Ngid:	0</span><br><span class="line">Pid:	13647</span><br><span class="line">PPid:	13642</span><br><span class="line">TracerPid:	0</span><br><span class="line">Uid:	1000	1000	1000	1000</span><br><span class="line">Gid:	1000	1000	1000	1000</span><br></pre></td></tr></table></figure>
+
+<p>2、主进程退出</p>
+<p>30s后主进程退出，再查看子进程相关信息。子进程的父进程变成init进程(PID=1)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[centos@xxxx 13647]$ cat status </span><br><span class="line">Name:	bash</span><br><span class="line">Umask:	0002</span><br><span class="line">State:	S (sleeping)</span><br><span class="line">Tgid:	13647</span><br><span class="line">Ngid:	0</span><br><span class="line">Pid:	13647</span><br><span class="line">PPid:	1</span><br><span class="line">TracerPid:	0</span><br><span class="line">Uid:	1000	1000	1000	1000</span><br><span class="line">Gid:	1000	1000	1000	1000</span><br></pre></td></tr></table></figure>
+
+<h5 id="三、孤儿进程"><a href="#三、孤儿进程" class="headerlink" title="三、孤儿进程"></a>三、孤儿进程</h5><p>孤儿进程：一个父进程退出，而它的一个或多个子进程还在运行，那么那些子进程将成为孤儿进程。孤儿进程将被init进程(进程号为1)所收养，并由init进程对它们完成状态收集工作，init 进程会循环地 wait() 它的已经退出的子进程。</p>
+<p>孤儿进程结束后会被 init 进程善后，并没有危害。</p>
 
       
 
@@ -257,7 +236,7 @@
         		</li>
       		 
         		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">进程</a>
         		</li>
       		
 		</ul>
@@ -313,7 +292,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" alt="微信分享二维码">
+      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -327,18 +306,18 @@
   
 <nav id="article-nav">
   
-    <a href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          从一个Go案例来了解僵尸进程
+          Golang的设计模式
         
       </div>
     </a>
   
   
-    <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">Go 内存管理(四)逃逸分析</div>
+    <a href="/2021/02/22/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%85%AD)-GC%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Go 内存管理(六)GC源码分析</div>
       <i class="icon-circle-right"></i>
     </a>
   
@@ -365,7 +344,7 @@
                 </span>
                 <span class="tooltip-content">
                     <div class="toc-article">
-                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81GC"><span class="toc-number">1.</span> <span class="toc-text">一、GC</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%A0%87%E8%AE%B0-%E6%B8%85%E9%99%A4-mark-and-sweep-v1-3"><span class="toc-number">2.</span> <span class="toc-text">二、标记-清除(mark-and-sweep)(v1.3)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D"><span class="toc-number">2.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">2.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-v1-5"><span class="toc-number">3.</span> <span class="toc-text">三、三色标记(v1.5)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-1"><span class="toc-number">3.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-1"><span class="toc-number">3.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-%E6%B7%B7%E5%90%88%E5%86%99%E5%B1%8F%E9%9A%9C%E6%B3%95-v1-8"><span class="toc-number">4.</span> <span class="toc-text">四、三色标记+混合写屏障法(v1.8)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-2"><span class="toc-number">4.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-2"><span class="toc-number">4.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%95%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">引用</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%A1%88%E4%BE%8B"><span class="toc-number">1.</span> <span class="toc-text">一、案例</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%BB%93%E6%9E%9C%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">二、结果分析</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">三、孤儿进程</span></a></li></ol>
                     </div>
                 </span>
             </div>
@@ -379,7 +358,7 @@
   
   <div class="duoshuo">
 	<!-- 多说评论框 start -->
-	<div class="ds-thread" data-thread-key="Go-内存原理(五)GC" data-title="Go 内存管理(五)GC原理" data-url="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/"></div>
+	<div class="ds-thread" data-thread-key="从一个Go案例了解孤儿进程1" data-title="从一个Go案例来了解孤儿进程" data-url="http://example.com/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/"></div>
 	<!-- 多说评论框 end -->
 	<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 	<script type="text/javascript">

@@ -149,6 +149,671 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-Golang锁资源(二)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/04/26/Golang%E9%94%81%E8%B5%84%E6%BA%90(%E4%BA%8C)/">Go 锁资源(二)阻塞原语源码解读</a>
+    </h1>
+  
+
+        
+        <a href="/2021/04/26/Golang%E9%94%81%E8%B5%84%E6%BA%90(%E4%BA%8C)/" class="archive-article-date">
+  	<time datetime="2021-04-26T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-04-26</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h4 id="一、前情提要"><a href="#一、前情提要" class="headerlink" title="一、前情提要"></a>一、前情提要</h4><p>上一篇我们介绍了Mutex<a target="_blank" rel="noopener" href="https://juejin.cn/post/6948773296045621255">锁资源的模式及源码分析</a>。mutex处于正常状态时，申请锁时与自旋状态的goroutine抢占锁失败时，会将对应的goroutine放在等待队列的头或者尾(若是唤醒的goroutine则是队头，若是新创建的goroutine则是队尾)等待唤醒；mutex处于饥饿状态时，申请锁时若没有锁资源则直接放在队尾。</p>
+        
+          <a class="article-more-a" href="/2021/04/26/Golang%E9%94%81%E8%B5%84%E6%BA%90(%E4%BA%8C)/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">锁</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/04/26/Golang%E9%94%81%E8%B5%84%E6%BA%90(%E4%BA%8C)/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Golang锁资源原理以及源码解读" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/04/09/Golang%E9%94%81%E8%B5%84%E6%BA%90%E5%8E%9F%E7%90%86%E4%BB%A5%E5%8F%8A%E6%BA%90%E7%A0%81%E8%A7%A3%E8%AF%BB/">Go 锁资源(一)理论介绍与源码解析</a>
+    </h1>
+  
+
+        
+        <a href="/2021/04/09/Golang%E9%94%81%E8%B5%84%E6%BA%90%E5%8E%9F%E7%90%86%E4%BB%A5%E5%8F%8A%E6%BA%90%E7%A0%81%E8%A7%A3%E8%AF%BB/" class="archive-article-date">
+  	<time datetime="2021-04-09T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-04-09</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h4 id="一、锁资源介绍"><a href="#一、锁资源介绍" class="headerlink" title="一、锁资源介绍"></a>一、锁资源介绍</h4><h5 id="1、乐观锁"><a href="#1、乐观锁" class="headerlink" title="1、乐观锁"></a>1、乐观锁</h5><p>乐观锁操作数据的时候很乐观，认为没有人同时修改数据，因此乐观锁不会上锁，在执行更新的时候判断在次期间别人是否修改了数据，如果修改了则进行回滚。使用版本号机制或者CAS算法实现。通常读多写少使用乐观锁。</p>
+<p>版本号机制：修改数据的时候获取版本，更新操作进行的时候带上版本，若版本一致才会进行修改</p>
+        
+          <a class="article-more-a" href="/2021/04/09/Golang%E9%94%81%E8%B5%84%E6%BA%90%E5%8E%9F%E7%90%86%E4%BB%A5%E5%8F%8A%E6%BA%90%E7%A0%81%E8%A7%A3%E8%AF%BB/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">锁</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/04/09/Golang%E9%94%81%E8%B5%84%E6%BA%90%E5%8E%9F%E7%90%86%E4%BB%A5%E5%8F%8A%E6%BA%90%E7%A0%81%E8%A7%A3%E8%AF%BB/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Golang源码分析之nethttp(二)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/04/06/Golang%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E4%B9%8Bnethttp(%E4%BA%8C)/">net/http源码分析(二)源码</a>
+    </h1>
+  
+
+        
+        <a href="/2021/04/06/Golang%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E4%B9%8Bnethttp(%E4%BA%8C)/" class="archive-article-date">
+  	<time datetime="2021-04-06T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-04-06</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>这是Golang源码分析之net/http主题的第二篇，我们已经在上一章节了解了<a target="_blank" rel="noopener" href="https://juejin.cn/post/6946377280893485087">TCP通信的基础框架</a>，现在进入正真的源码分析</p>
+<blockquote>
+<p>以下源码基于go1.14.13 windows/amd64进行分析</p>
+</blockquote>
+<h4 id="一、举个栗子"><a href="#一、举个栗子" class="headerlink" title="一、举个栗子"></a>一、举个栗子</h4><p>我们写一个C/S例子</p>
+<p>service监听1234端口，设置路由为/hello，处理函数为HelloServer</p>
+        
+          <a class="article-more-a" href="/2021/04/06/Golang%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E4%B9%8Bnethttp(%E4%BA%8C)/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">http</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/04/06/Golang%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E4%B9%8Bnethttp(%E4%BA%8C)/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-http 框架" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/04/01/http%20%E6%A1%86%E6%9E%B6/">net/http源码分析(一)Socket</a>
+    </h1>
+  
+
+        
+        <a href="/2021/04/01/http%20%E6%A1%86%E6%9E%B6/" class="archive-article-date">
+  	<time datetime="2021-04-01T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-04-01</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>本文代码均为golang 版本：go1.14.13 </p>
+</blockquote>
+<h4 id="一、Socket"><a href="#一、Socket" class="headerlink" title="一、Socket"></a>一、Socket</h4><p>Socket(套接字)，用来描述IP地址和端口，是通信链的句柄。应用程序可以通过socket向网络发送请求或者应答请求。Socket是支持TCP/IP协议的网络通信的基本操作单元，是对通信端点的抽象表示，包含进行通信的所必须5种信息：连接使用的协议、本地IP/端口、远端IP/端口。</p>
+<p>在应用程序中，socket对应一个描述符；在内核中，它对应一个管理通信过程的对象(socket struct结构) 。在Linux系统内核中，struct socket结构对象不仅封装了管理通信过程的数据信息，而且封装了负责网络通信的功能函数。通过这些接口，应用程序触发系统调用来使用上述功能函数，从而访问网络服务。</p>
+        
+          <a class="article-more-a" href="/2021/04/01/http%20%E6%A1%86%E6%9E%B6/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">http</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">socket</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/04/01/http%20%E6%A1%86%E6%9E%B6/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-map与sync.map" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/03/26/Go-map%E4%B8%8Esync.map/">Go-map底层原理</a>
+    </h1>
+  
+
+        
+        <a href="/2021/03/26/Go-map%E4%B8%8Esync.map/" class="archive-article-date">
+  	<time datetime="2021-03-26T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-26</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <blockquote>
+<p>以下源码分析基于go1.14.13版本</p>
+</blockquote>
+<h4 id="一、Map底层原理"><a href="#一、Map底层原理" class="headerlink" title="一、Map底层原理"></a>一、Map底层原理</h4><p>Golang的Map数据结构底层原理是哈希桶，解决冲突Hash的冲突使用的是开散列，也就是将具有相同关键码的元素用单链表连接起来</p>
+<p>哈希桶的原理：哈希桶使用顺序表来存放Key链表的头结点，每一个Key有对应的链表。</p>
+<p>如有以下数字[1,6,8,11,13,14]，hash(key)=value%5，存储在hash表如下图：</p>
+<p><img src="/photo/bolgImg/1616727383924.png"></p>
+        
+          <a class="article-more-a" href="/2021/03/26/Go-map%E4%B8%8Esync.map/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color4">Map</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/03/26/Go-map%E4%B8%8Esync.map/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Go-make和new的区别" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/03/23/Go-make%E5%92%8Cnew%E7%9A%84%E5%8C%BA%E5%88%AB/">Go-make和new的区别</a>
+    </h1>
+  
+
+        
+        <a href="/2021/03/23/Go-make%E5%92%8Cnew%E7%9A%84%E5%8C%BA%E5%88%AB/" class="archive-article-date">
+  	<time datetime="2021-03-23T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-23</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>值类型和引用类型</p>
+<blockquote>
+<p>值类型：int，float，bool，string，struct和array。变量直接存储值，分配栈区的内存空间，这些变量所占据的空间在函数被调用完后会自动释放<br>引用类型：slice，map，chan和值类型对应的指针。变量存储的是一个地址（或者理解为指针），指针指向内存中真正存储数据的首地址。内存通常在堆上分配，通过GC回收。</p>
+</blockquote>
+<p>对于引用类型的变量，不仅要声明这个变量，还要手动为其分配空间。make和new都在堆上分配内存。</p>
+        
+          <a class="article-more-a" href="/2021/03/23/Go-make%E5%92%8Cnew%E7%9A%84%E5%8C%BA%E5%88%AB/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/03/23/Go-make%E5%92%8Cnew%E7%9A%84%E5%8C%BA%E5%88%AB/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Golang的设计模式" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">Golang的设计模式</a>
+    </h1>
+  
+
+        
+        <a href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/" class="archive-article-date">
+  	<time datetime="2021-03-17T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-17</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h3 id="一、设计模式"><a href="#一、设计模式" class="headerlink" title="一、设计模式"></a>一、设计模式</h3><h4 id="1、是什么"><a href="#1、是什么" class="headerlink" title="1、是什么"></a>1、是什么</h4><blockquote>
+<p>设计模式(Design Pattern)是一套被反复使用、多数人知晓的、经过分类编目的、代码设计经验的总结，使用设计模式是为了可重用代码、让代码更容易被他人理解并且保证代码可靠性。</p>
+</blockquote>
+<p>通俗来说：是一个项目的代码层面设计架构，代码功能的排版。相当于模板。这些模式都是巨人们在软件系统中总结出的成功的、能够实现可维护性复用的设计方案</p>
+        
+          <a class="article-more-a" href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">设计模式</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/03/17/Golang%E7%9A%84%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-从一个Go案例了解孤儿进程1" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/">从一个Go案例来了解孤儿进程</a>
+    </h1>
+  
+
+        
+        <a href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/" class="archive-article-date">
+  	<time datetime="2021-03-08T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-03-08</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>本文从一个Golang案例学习孤儿进程的主要内容</p>
+<p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6931990188029804552">僵尸进程在这</a></p>
+<h5 id="一、案例"><a href="#一、案例" class="headerlink" title="一、案例"></a>一、案例</h5><p>main进程创建一个bash子进程，子进程存活10s退出，main进程睡20s退出</p>
+        
+          <a class="article-more-a" href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">进程</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2021/03/08/%E4%BB%8E%E4%B8%80%E4%B8%AAGo%E6%A1%88%E4%BE%8B%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B1/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-Go-内存原理(六)-GC源码分析" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
@@ -231,36 +896,30 @@
 
 
   
-    <article id="post-Go-内存原理(五)GC" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+    <article id="post-从Golang来了解孤儿进程" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/">Go 内存管理(五)GC原理</a>
+      <a class="article-title" href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/">从一个Go案例来了解僵尸进程</a>
     </h1>
   
 
         
-        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
-  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+        <a href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/" class="archive-article-date">
+  	<time datetime="2021-02-22T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-22</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
-<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
-<p>GC的算法随着go语言版本的更新而不断变化</p>
-<blockquote>
-<p>goV1.3之前标记-清除(mark and sweep)算法</p>
-<p>goV1.5三色标记法</p>
-<p>goV1.8三色标记法+混合写屏障法</p>
-</blockquote>
+        <p>本文从一个Golang案例学习僵尸进程:skull:的主要内容</p>
+<h5 id="一、案例"><a href="#一、案例" class="headerlink" title="一、案例"></a>一、案例</h5><p>main进程创建一个bash子进程，子进程存活10s退出，main进程睡20s退出</p>
         
-          <a class="article-more-a" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/#more">more >></a>
+          <a class="article-more-a" href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/#more">more >></a>
         
       
 
@@ -278,7 +937,7 @@
         		</li>
       		 
         		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">进程</a>
         		</li>
       		
 		</ul>
@@ -288,7 +947,7 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/">展开全文 >></a>
+          <a class="article-more-a" href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/">展开全文 >></a>
         </p>
       
 
@@ -318,337 +977,10 @@
 
 
   
-    <article id="post-Go-内存原理(四)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
   
-    <h1 itemprop="name">
-      <a class="article-title" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/">Go 内存管理(四)逃逸分析</a>
-    </h1>
-  
-
-        
-        <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" class="archive-article-date">
-  	<time datetime="2021-02-03T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-03</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>Golang什么情况下会申请堆内存，由什么决定的，学到堆内存一定会有这样的一个疑问…</p>
-<p>栈内存：一般由系统申请和释放。比如函数的入参、局部变量、返回值等</p>
-<p>堆内存：一般由程序员申请和释放(malloc/free new/delete等)。使用malloc关键字申请的内存就在堆内存，申请和释放要成对使用，否则会造成内存泄漏。对于Golang系统会自动回收已经不使用的堆内存，这就是GC的工作啦</p>
-        
-          <a class="article-more-a" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/#more">more >></a>
-        
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-Go-内存原理(三)源码分析" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Go 内存管理(三)源码分析</a>
-    </h1>
-  
-
-        
-        <a href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/" class="archive-article-date">
-  	<time datetime="2021-01-29T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-29</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <p>学习了上2篇Go语言的内存管理的原理（一、TCMalloc原理<a target="_blank" rel="noopener" href="https://juejin.cn/post/6919005994966056968">https://juejin.cn/post/6919005994966056968</a>  二、Go内存管理原理<a target="_blank" rel="noopener" href="https://juejin.cn/post/6920485540391288839%EF%BC%89%E6%88%91%E4%BB%AC%E7%90%86%E8%A7%A3%E6%BA%90%E7%A0%81%E7%9A%84%E6%B5%81%E7%A8%8B%E5%B0%B1%E9%9D%9E%E5%B8%B8easy%E5%95%A6%E3%80%82">https://juejin.cn/post/6920485540391288839）我们理解源码的流程就非常easy啦。</a></p>
-<h3 id="一、结构体分析"><a href="#一、结构体分析" class="headerlink" title="一、结构体分析"></a>一、结构体分析</h3>
-        
-          <a class="article-more-a" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/#more">more >></a>
-        
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2021/01/29/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%89)%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-Go-内存原理(二)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/">Go 内存管理(二)内存管理原理</a>
-    </h1>
-  
-
-        
-        <a href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/" class="archive-article-date">
-  	<time datetime="2021-01-23T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-23</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h3 id="一、Golang内存管理的原理"><a href="#一、Golang内存管理的原理" class="headerlink" title="一、Golang内存管理的原理"></a>一、Golang内存管理的原理</h3><p>Golang的内存管理的核心思想就是完成类似预分配、内存池等操作，以避开系统调用带来的性能问题，防止每次分配内存都需要系统调用。</p>
-<p>下图是Golang内存管理流程图 PS：如果有什么错请各位大佬指正</p>
-<p><img src="/photo/bolgImg/1611300221997.png"></p>
-        
-          <a class="article-more-a" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/#more">more >></a>
-        
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2021/01/23/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%8C)/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-Go-内存原理(一)" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/">Go 内存管理(一)TCMalloc内存管理原理</a>
-    </h1>
-  
-
-        
-        <a href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/" class="archive-article-date">
-  	<time datetime="2021-01-18T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-01-18</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h5 id="一、TCMalloc"><a href="#一、TCMalloc" class="headerlink" title="一、TCMalloc"></a>一、TCMalloc</h5><p>Go内存管理是基于TCMalloc基础上进行设计的，所以在学习Go内存管理之前先学习TCMalloc原理</p>
-<p>TCMalloc(Thread Cache Malloc)是线程级别的内存管理模式。</p>
-<p>TCMalloc优势：</p>
-<p>1、速度快    </p>
-<p>2、减少锁竞争。对于小对象，只有在对应线程分配的空闲块不足的时候，才会使用到锁；对于大对象，TCMalloc尝试使用有效的自旋锁</p>
-<p>总结来说就是：最大化内存使用率，最小化分配时间。</p>
-<p><img src="/photo/bolgImg/mem1.1.png"></p>
-        
-          <a class="article-more-a" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/#more">more >></a>
-        
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2021/01/18/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%B8%80)/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
+    <nav id="page-nav">
+      <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/">Next &amp;raquo;</a>
+    </nav>
   
 
 
@@ -739,6 +1071,30 @@ return o(i(t),arguments.length<2?void 0:u(arguments[1]))}})},function(t,n,r){var
              
               <li class="article-tag-list-item">
                 <a href="javascript:void(0)" class="js-tag color5">内存管理</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color2">锁</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color5">http</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color2">socket</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color4">Map</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color5">设计模式</a>
+              </li>
+             
+              <li class="article-tag-list-item">
+                <a href="javascript:void(0)" class="js-tag color3">进程</a>
               </li>
             
             <div class="clearfix"></div>

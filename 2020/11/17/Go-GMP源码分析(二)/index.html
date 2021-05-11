@@ -6,21 +6,23 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://example.com">
-  <title>Go 内存管理(五)GC原理 | 小池的博客</title>
+  <title>Golang-Go关键字发生了什么 | 小池的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+  <meta name="description" content="以下是基于 go1.14.2 进行分析  ​        在了解源码之前，因为涉及到goroutine的调度，所以先了解一下go语言的GMP模型。M相当于线程，一个M对应一个P控制器,P控制器负责goroutine调度在M上。这里涉及2个goroutine队列，一个是P本地的队列runq，这个队列存储待运行的goroutines，存储方式是用循环队列进行存储,在代码中是用数组实现的。另外一个队">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Go 内存管理(五)GC原理">
-<meta property="og:url" content="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/index.html">
+<meta property="og:title" content="Golang-Go关键字发生了什么">
+<meta property="og:url" content="http://example.com/2020/11/17/Go-GMP%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90(%E4%BA%8C)/index.html">
 <meta property="og:site_name" content="小池的博客">
-<meta property="og:description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+<meta property="og:description" content="以下是基于 go1.14.2 进行分析  ​        在了解源码之前，因为涉及到goroutine的调度，所以先了解一下go语言的GMP模型。M相当于线程，一个M对应一个P控制器,P控制器负责goroutine调度在M上。这里涉及2个goroutine队列，一个是P本地的队列runq，这个队列存储待运行的goroutines，存储方式是用循环队列进行存储,在代码中是用数组实现的。另外一个队">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2021-02-19T06:40:47.000Z">
-<meta property="article:modified_time" content="2021-05-10T09:07:12.986Z">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1605597086800.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1605597660129.png">
+<meta property="article:published_time" content="2020-11-17T06:40:47.000Z">
+<meta property="article:modified_time" content="2021-05-11T03:45:59.634Z">
 <meta property="article:author" content="小池">
 <meta property="article:tag" content="golang">
-<meta property="article:tag" content="内存管理">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/photo/bolgImg/1605597086800.png">
   
     <link rel="alternative" href="/atom.xml" title="小池的博客" type="application/atom+xml">
   
@@ -152,73 +154,59 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-Go-内存原理(五)GC" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-Go-GMP源码分析(二)" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      Go 内存管理(五)GC原理
+      Golang-Go关键字发生了什么
     </h1>
   
 
         
-        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
-  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+        <a href="/2020/11/17/Go-GMP%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90(%E4%BA%8C)/" class="archive-article-date">
+  	<time datetime="2020-11-17T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-11-17</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
-<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
-<p>GC的算法随着go语言版本的更新而不断变化</p>
-<blockquote>
-<p>goV1.3之前标记-清除(mark and sweep)算法</p>
-<p>goV1.5三色标记法</p>
-<p>goV1.8三色标记法+混合写屏障法</p>
+        <blockquote>
+<p>以下是基于 go1.14.2 进行分析</p>
 </blockquote>
+<p>​        在了解源码之前，因为涉及到goroutine的调度，所以先了解一下go语言的GMP模型。M相当于线程，一个M对应一个P控制器,P控制器负责goroutine调度在M上。这里涉及2个goroutine队列，一个是P本地的队列runq，这个队列存储待运行的goroutines，存储方式是用循环队列进行存储,在代码中是用数组实现的。另外一个队列是全局的schedt，用链表实现的，这里个数没有进行限制。当本地队列为空时，会向全局队列进行调度。</p>
 <span id="more"></span>
 
-<p>我们将对以上算法进行原理剖析</p>
-<p>触发GC的条件：</p>
-<p>​    1）主动触发，用户代码中调用 runtime.GC 会主动触发 GC<br>​    2）默认每 2min 未产生 GC 时，golang 的守护协程 sysmon 会强制触发 GC<br>​    3）当 go 程序分配的内存增长超过阈值时，会触发 GC</p>
-<h4 id="二、标记-清除-mark-and-sweep-v1-3"><a href="#二、标记-清除-mark-and-sweep-v1-3" class="headerlink" title="二、标记-清除(mark-and-sweep)(v1.3)"></a>二、标记-清除(mark-and-sweep)(v1.3)</h4><h5 id="1、介绍"><a href="#1、介绍" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>从名字看就会有2个步骤，标记和清除</p>
-<p>​    1)  暂停程序运行(STW) 对可达的对象进行标记<br>​    2)  清除未标记的对象<br>​    3）停止暂停，程序继续</p>
-<p>引入STW(stop the world)是为了防止在标记过程中又发生了对象的引用，导致清除了正在使用的对象</p>
-<h5 id="2、优缺点"><a href="#2、优缺点" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>1）优点：简单<br>2）缺点：STW暂停程序，程序出现卡顿；标记需要扫描整个heap; 清除数据会产生碎片</p>
-<h4 id="三、三色标记-v1-5"><a href="#三、三色标记-v1-5" class="headerlink" title="三、三色标记(v1.5)"></a>三、三色标记(v1.5)</h4><h5 id="1、介绍-1"><a href="#1、介绍-1" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>在标记-清除方法上增加了中间状态：黑色-灰色-白色 以减少STW的时间</p>
-<p>黑色：已标记的对象，表示对象是跟对象的可达的</p>
-<p>灰色：被黑色引用的对象，灰色为标记过程的中间状态，当灰色对象全部标记为黑色表示标记阶段全部完成</p>
-<p>白色：未标记对象，在开始扫描时全部对象均为白色，若扫描完成后该节点还是白色，说明该对象不可达，在清除阶段会被清除</p>
-<p>最后，只有2中颜色，白色被清除，黑色被保留</p>
-<p><strong>过程</strong></p>
-<p>   1）开始时所有对象为白色<br>   2）将所有<strong>根对象</strong>标记为灰色，放入队列<br>   3）遍历灰色对象，将其标记为黑色，并将他们引用的对象标记为灰色，放入队列<br>   4）重复步骤 <em>3</em> 持续遍历灰色对象，直至队列为空<br>   5）此时只剩下黑色对象和白色对象，白色对象即为下一步需要清除的对象</p>
-<p>根对象指的是运行当前时刻的栈以及全局数据区域</p>
-<p>在三色标记中，减少了STW的时间。我们知道在三色标记中，增加了中间状态-灰色状态，这可以允许标记与用户代码并行执行，这里是怎么做到的呢，是因为三色标记加入了写屏障机制</p>
-<p>写屏障机制：黑色对象的内存槽有两种位置, 栈和堆. 栈空间的特点是容量小,但是要求相应速度快,因为函数调用弹出频繁使用, 所以“写屏障”机制,在<strong>栈空间的对象操作中不使用</strong>. 而仅仅使用在堆空间对象的操作中。写屏障简单来说也就是对于已标记的黑色对象（堆）由于并发特性添加了新对象(白色)，此时会触发写屏障，也就是会将添加的新对象标记为灰色，继续进行标记，最后标记完成后，刚刚标记的灰色也会变为黑色。这是对于堆而言。</p>
-<p>若对于栈中已标记的黑色对象由于并发特性添加了新对象(白色)。在所有的标记完成之后，可能对于栈上还会存在白色对象被引用的情况，这个时候需要STW重新扫描栈，标记栈上引用的白色对象为灰色，继续扫描标记为黑色。这次STW大约的时间在10~100ms间</p>
-<h5 id="2、优缺点-1"><a href="#2、优缺点-1" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><ol>
-<li> 优点：减少STW的时间</li>
-<li> 缺点：结束时需要STW来重新扫描栈，标记栈上引用的白色对象的存活</li>
-</ol>
-<h4 id="四、三色标记-混合写屏障法-v1-8"><a href="#四、三色标记-混合写屏障法-v1-8" class="headerlink" title="四、三色标记+混合写屏障法(v1.8)"></a>四、三色标记+混合写屏障法(v1.8)</h4><h5 id="1、介绍-2"><a href="#1、介绍-2" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>避免了对栈重新扫描的过程，极大的减少了STW的时间。当然屏障技术的使用还是在堆上，要保证栈上的运行效率</p>
-<p>​    1）GC开始将栈上的对象全部扫描并标记为黑色(之后不再进行第二次重复扫描，无需STW)<br>​    2）GC期间，任何在栈上创建的新对象，均为黑色<br>​    3）堆中被删除的对象标记为灰色(这里被删除是指的是删除引用关系)<br>​    4）堆中被添加的对象标记为灰色(这里被添加是指的是添加引用关系)</p>
-<p>可见混合屏障只需要在开始时并发扫描各个goroutine的栈，使其变黑并一直保持，这个过程不需要STW，而标记结束后，因为栈在扫描后始终是黑色的，也无需再进行re-scan操作了，减少了STW的时间</p>
-<h5 id="2、优缺点-2"><a href="#2、优缺点-2" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>几乎不需要STW的时间，效率更高</p>
-<h4 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h4><p>第一篇文章适合初次接触GC的童鞋阅读</p>
+<p>以下时简单的GMP模型：</p>
+<p><img src="/photo/bolgImg/1605597086800.png"></p>
+<h4 id="一、案例分析"><a href="#一、案例分析" class="headerlink" title="一、案例分析"></a>一、案例分析</h4><p>下面是一个简单的协程实例，使用go关键字开启一个协程执行funTest()</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">funTest</span><span class="params">()</span></span> &#123;</span><br><span class="line">	fmt.Printf(<span class="string">&quot;this is test&quot;</span>)</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">go</span> funTest() <span class="comment">// 开启协程</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们通过汇编来看一下具体的执行流程：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go tool compile -S main.go</span><br></pre></td></tr></table></figure>
+
+<p>这里我们只看main函数的汇编流程：</p>
+<p><img src="/photo/bolgImg/1605597660129.png"></p>
 <blockquote>
-<ul>
-<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzAxMTA4Njc0OQ==&mid=2651439356&idx=2&sn=264a3141ea9a4b29fe67ec06a17aeb99&chksm=80bb1e0eb7cc97181b81ae731d0d425dda1e9a8d503ff75f217a0d77bd9d0eb451555cb584a0&scene=21#wechat_redirect">Golang三色标记、混合写屏障GC模式图文全分析</a> </p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/cfc669f83eaa">golang的gc原理</a></p>
-</li>
-<li><p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903917650722829">搞懂垃圾回收</a></p>
-</li>
-</ul>
+<p>SP：指向当前栈帧的栈顶<br>BP：指向当前栈帧的栈底，函数栈的起始位置。这个寄存器占8个字节，跳过8字节后才是函数栈上局部变量的内存</p>
 </blockquote>
+<p>从汇编看来，使用CALL关键字，go调用会跳转到newproc处理函数</p>
+<h4 id="二、源码分析"><a href="#二、源码分析" class="headerlink" title="二、源码分析"></a>二、源码分析</h4><p>经过GC编译，会把内存的大小以及go需要执行的函数指针传进来。</p>
+<p>下图的fn即为需要执行的参数</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//go:nosplit</span></span><br><span class="line"><span class="comment">// 编译器标识，跳过栈溢出检测，跳过此检测，提高性能</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">newproc</span><span class="params">(siz <span class="keyword">int32</span>, fn *funcval)</span></span> &#123;</span><br><span class="line">	argp := add(unsafe.Pointer(&amp;fn), sys.PtrSize)</span><br><span class="line">	fmt.Printf(siz)</span><br><span class="line">	gp := getg() <span class="comment">// 获取goroutine</span></span><br><span class="line">	pc := getcallerpc() <span class="comment">// 获取调用方的程序计数器</span></span><br><span class="line">	systemstack(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		newproc1(fn, argp, siz, gp, pc)</span><br><span class="line">	&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>newproc1实现了调用goroutine具体流程</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">	1.获取或者创建新的 Goroutine 结构体</span></span><br><span class="line"><span class="comment">	2.将传入的参数移到 Goroutine 的栈上</span></span><br><span class="line"><span class="comment">	3.更新 Goroutine 调度相关的属性</span></span><br><span class="line"><span class="comment">	4.将 Goroutine 加入处理器的运行队列</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">newproc1</span><span class="params">(fn *funcval, argp unsafe.Pointer, narg <span class="keyword">int32</span>, callergp *g, callerpc <span class="keyword">uintptr</span>)</span></span> &#123;</span><br><span class="line">	_g_ := getg()</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> fn == <span class="literal">nil</span> &#123;</span><br><span class="line">		_g_.m.throwing = <span class="number">-1</span> <span class="comment">// do not dump full stacks</span></span><br><span class="line">		throw(<span class="string">&quot;go of nil func value&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	acquirem() <span class="comment">// disable preemption because it can be holding p in a local var</span></span><br><span class="line">	siz := narg</span><br><span class="line">	siz = (siz + <span class="number">7</span>) &amp;^ <span class="number">7</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// We could allocate a larger initial stack if necessary.</span></span><br><span class="line">	<span class="comment">// Not worth it: this is almost always an error.</span></span><br><span class="line">	<span class="comment">// 4*sizeof(uintreg): extra space added below</span></span><br><span class="line">	<span class="comment">// sizeof(uintreg): caller&#x27;s LR (arm) or return address (x86, in gostartcall).</span></span><br><span class="line">	<span class="keyword">if</span> siz &gt;= _StackMin<span class="number">-4</span>*sys.RegSize-sys.RegSize &#123;</span><br><span class="line">		throw(<span class="string">&quot;newproc: function arguments too large for new goroutine&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	_p_ := _g_.m.p.ptr()</span><br><span class="line">	<span class="comment">// 先从处理器M-&gt;P-&gt;gFree列表查找空闲的goroutine</span></span><br><span class="line">	newg := gfget(_p_)</span><br><span class="line">	<span class="keyword">if</span> newg == <span class="literal">nil</span> &#123; <span class="comment">// 若调度器的gFree和处理器的gFree列表不存在结构体时</span></span><br><span class="line">		newg = malg(_StackMin) <span class="comment">// 创建2048大小栈的新结构体</span></span><br><span class="line">		casgstatus(newg, _Gidle, _Gdead) <span class="comment">// 设置状态：_Gidle只是初始化  _Gdead分配栈</span></span><br><span class="line">		allgadd(newg) <span class="comment">// publishes with a g-&gt;status of Gdead so GC scanner doesn&#x27;t look at uninitialized stack.</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> newg.stack.hi == <span class="number">0</span> &#123;</span><br><span class="line">		throw(<span class="string">&quot;newproc1: newg missing stack&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> readgstatus(newg) != _Gdead &#123;</span><br><span class="line">		throw(<span class="string">&quot;newproc1: new g is not Gdead&quot;</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	totalSize := <span class="number">4</span>*sys.RegSize + <span class="keyword">uintptr</span>(siz) + sys.MinFrameSize <span class="comment">// extra space in case of reads slightly beyond frame</span></span><br><span class="line">	totalSize += -totalSize &amp; (sys.SpAlign - <span class="number">1</span>)                  <span class="comment">// align to spAlign</span></span><br><span class="line">	sp := newg.stack.hi - totalSize <span class="comment">// goroutine的栈指针</span></span><br><span class="line"></span><br><span class="line">	spArg := sp</span><br><span class="line">	<span class="keyword">if</span> usesLR &#123;</span><br><span class="line">		<span class="comment">// caller&#x27;s LR</span></span><br><span class="line">		*(*<span class="keyword">uintptr</span>)(unsafe.Pointer(sp)) = <span class="number">0</span></span><br><span class="line">		prepGoExitFrame(sp)</span><br><span class="line">		spArg += sys.MinFrameSize</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> narg &gt; <span class="number">0</span> &#123;</span><br><span class="line">		<span class="comment">// 将fn函数的全部参数拷贝到栈上</span></span><br><span class="line">		<span class="comment">// 将所有参数对应的内存空间整片的拷贝到栈上</span></span><br><span class="line">		memmove(unsafe.Pointer(spArg), argp, <span class="keyword">uintptr</span>(narg))</span><br><span class="line">		...</span><br><span class="line">		<span class="keyword">if</span> writeBarrier.needed &amp;&amp; !_g_.m.curg.gcscandone &#123;</span><br><span class="line">			f := findfunc(fn.fn)</span><br><span class="line">			stkmap := (*stackmap)(funcdata(f, _FUNCDATA_ArgsPointerMaps))</span><br><span class="line">			<span class="keyword">if</span> stkmap.nbit &gt; <span class="number">0</span> &#123;</span><br><span class="line">				<span class="comment">// We&#x27;re in the prologue, so it&#x27;s always stack map index 0.</span></span><br><span class="line">				bv := stackmapdata(stkmap, <span class="number">0</span>)</span><br><span class="line">				bulkBarrierBitmap(spArg, spArg, <span class="keyword">uintptr</span>(bv.n)*sys.PtrSize, <span class="number">0</span>, bv.bytedata)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	memclrNoHeapPointers(unsafe.Pointer(&amp;newg.sched), unsafe.Sizeof(newg.sched))</span><br><span class="line">	<span class="comment">// 设置新的goroutine结构体的参数</span></span><br><span class="line">	newg.sched.sp = sp <span class="comment">// 栈指针</span></span><br><span class="line">	newg.stktopsp = sp</span><br><span class="line">	<span class="comment">// 程序计数器</span></span><br><span class="line">	newg.sched.pc = funcPC(goexit) + sys.PCQuantum <span class="comment">// +PCQuantum so that previous instruction is in same function</span></span><br><span class="line">	newg.sched.g = guintptr(unsafe.Pointer(newg))</span><br><span class="line">	<span class="comment">// 设置调度相关信息</span></span><br><span class="line">	gostartcallfn(&amp;newg.sched, fn)</span><br><span class="line">	<span class="comment">// 调度goroutine的调用者的pc</span></span><br><span class="line">	newg.gopc = callerpc</span><br><span class="line">	newg.ancestors = saveAncestors(callergp)</span><br><span class="line">	newg.startpc = fn.fn</span><br><span class="line">	<span class="keyword">if</span> _g_.m.curg != <span class="literal">nil</span> &#123;</span><br><span class="line">		newg.labels = _g_.m.curg.labels</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> isSystemGoroutine(newg, <span class="literal">false</span>) &#123;</span><br><span class="line">		atomic.Xadd(&amp;sched.ngsys, +<span class="number">1</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 更新状态:_Grunnable</span></span><br><span class="line">	casgstatus(newg, _Gdead, _Grunnable)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> _p_.goidcache == _p_.goidcacheend &#123;</span><br><span class="line">		<span class="comment">// Sched.goidgen is the last allocated id,</span></span><br><span class="line">		<span class="comment">// this batch must be [sched.goidgen+1, sched.goidgen+GoidCacheBatch].</span></span><br><span class="line">		<span class="comment">// At startup sched.goidgen=0, so main goroutine receives goid=1.</span></span><br><span class="line">		_p_.goidcache = atomic.Xadd64(&amp;sched.goidgen, _GoidCacheBatch)</span><br><span class="line">		_p_.goidcache -= _GoidCacheBatch - <span class="number">1</span></span><br><span class="line">		_p_.goidcacheend = _p_.goidcache + _GoidCacheBatch</span><br><span class="line">	&#125;</span><br><span class="line">	newg.goid = <span class="keyword">int64</span>(_p_.goidcache)</span><br><span class="line">	_p_.goidcache++</span><br><span class="line">	<span class="keyword">if</span> raceenabled &#123;</span><br><span class="line">		newg.racectx = racegostart(callerpc)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> trace.enabled &#123;</span><br><span class="line">		traceGoCreate(newg, newg.startpc)</span><br><span class="line">	&#125;</span><br><span class="line">	runqput(_p_, newg, <span class="literal">true</span>) <span class="comment">// 把g加入处理器对应的p的队列中</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> atomic.Load(&amp;sched.npidle) != <span class="number">0</span> &amp;&amp; atomic.Load(&amp;sched.nmspinning) == <span class="number">0</span> &amp;&amp; mainStarted &#123;</span><br><span class="line">		wakep()  <span class="comment">//唤醒新的处理器执行goroutine</span></span><br><span class="line">	&#125;</span><br><span class="line">	releasem(_g_.m) <span class="comment">// 把g与m解绑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在上面的函数中会获取一个空闲的goroutine，以下是具体实现：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// goroutine所在处理器的调度器或者全局调度器sched.gFree 列表中获取 runtime.g 结构体；找一个空闲goroutine</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">gfget</span><span class="params">(_p_ *p)</span> *<span class="title">g</span></span> &#123;</span><br><span class="line">retry:</span><br><span class="line">	<span class="keyword">if</span> _p_.gFree.empty() &amp;&amp; (!sched.gFree.stack.empty() || !sched.gFree.noStack.empty()) &#123;</span><br><span class="line">		lock(&amp;sched.gFree.lock)</span><br><span class="line">		<span class="comment">// Move a batch of free Gs to the P.</span></span><br><span class="line">		<span class="comment">// 若处理器的goroutine列表是空的，加入32个空闲goroutine在gFree</span></span><br><span class="line">		<span class="keyword">for</span> _p_.gFree.n &lt; <span class="number">32</span> &#123;</span><br><span class="line">			<span class="comment">// Prefer Gs with stacks.</span></span><br><span class="line">			<span class="comment">// 从sched调取空闲的goroutine取出</span></span><br><span class="line">			gp := sched.gFree.stack.pop()</span><br><span class="line">			<span class="keyword">if</span> gp == <span class="literal">nil</span> &#123;</span><br><span class="line">				gp = sched.gFree.noStack.pop()</span><br><span class="line">				<span class="keyword">if</span> gp == <span class="literal">nil</span> &#123;</span><br><span class="line">					<span class="keyword">break</span></span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			sched.gFree.n--</span><br><span class="line">			_p_.gFree.push(gp)</span><br><span class="line">			_p_.gFree.n++</span><br><span class="line">		&#125;</span><br><span class="line">		unlock(&amp;sched.gFree.lock)</span><br><span class="line">		<span class="keyword">goto</span> retry</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 当处理器的goroutine数量充足时，会从列表头部返回一个新的goroutine</span></span><br><span class="line">	gp := _p_.gFree.pop()</span><br><span class="line">	<span class="keyword">if</span> gp == <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">	&#125;</span><br><span class="line">	_p_.gFree.n--</span><br><span class="line">	<span class="keyword">if</span> gp.stack.lo == <span class="number">0</span> &#123;</span><br><span class="line">		<span class="comment">// Stack was deallocated in gfput. Allocate a new one.</span></span><br><span class="line">		systemstack(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">			gp.stack = stackalloc(_FixedStack)</span><br><span class="line">		&#125;)</span><br><span class="line">		gp.stackguard0 = gp.stack.lo + _StackGuard</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">if</span> raceenabled &#123;</span><br><span class="line">			racemalloc(unsafe.Pointer(gp.stack.lo), gp.stack.hi-gp.stack.lo)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> msanenabled &#123;</span><br><span class="line">			msanmalloc(unsafe.Pointer(gp.stack.lo), gp.stack.hi-gp.stack.lo)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> gp</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将获取的goroutine放在运行队列具体实现功能：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 可能是全局的运行队列，也可能是处理器的运行队列</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">runqput</span><span class="params">(_p_ *p, gp *g, next <span class="keyword">bool</span>)</span></span> &#123;</span><br><span class="line">	<span class="keyword">if</span> randomizeScheduler &amp;&amp; next &amp;&amp; fastrand()%<span class="number">2</span> == <span class="number">0</span> &#123;</span><br><span class="line">		next = <span class="literal">false</span></span><br><span class="line">	&#125;</span><br><span class="line">    <span class="comment">// 将goroutine设置到处理器的runnext作为下一个处理器执行的任务</span></span><br><span class="line">	<span class="keyword">if</span> next &#123;</span><br><span class="line">	retryNext:</span><br><span class="line">		oldnext := _p_.runnext</span><br><span class="line">		<span class="keyword">if</span> !_p_.runnext.cas(oldnext, guintptr(unsafe.Pointer(gp))) &#123;</span><br><span class="line">			<span class="keyword">goto</span> retryNext</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> oldnext == <span class="number">0</span> &#123;</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// Kick the old runnext out to the regular run queue.</span></span><br><span class="line">		gp = oldnext.ptr()</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">retry:</span><br><span class="line">	h := atomic.LoadAcq(&amp;_p_.runqhead) <span class="comment">// load-acquire, synchronize with consumers</span></span><br><span class="line">	t := _p_.runqtail</span><br><span class="line">	<span class="keyword">if</span> t-h &lt; <span class="keyword">uint32</span>(<span class="built_in">len</span>(_p_.runq)) &#123;</span><br><span class="line">		<span class="comment">// 本地运行队列runq:环形列表,最多256个</span></span><br><span class="line">		_p_.runq[t%<span class="keyword">uint32</span>(<span class="built_in">len</span>(_p_.runq))].set(gp)</span><br><span class="line">		atomic.StoreRel(&amp;_p_.runqtail, t+<span class="number">1</span>) <span class="comment">// store-release, makes the item available for consumption</span></span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 若本地队列已经没有空间，则把goroutine增加到全局的运行队列中 sched</span></span><br><span class="line">	<span class="keyword">if</span> runqputslow(_p_, gp, h, t) &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// the queue is not full, now the put above must succeed</span></span><br><span class="line">	<span class="keyword">goto</span> retry</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
 
       
 
@@ -254,10 +242,6 @@
 			 
         		<li class="article-tag-list-item">
         			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">golang</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
         		</li>
       		
 		</ul>
@@ -313,7 +297,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" alt="微信分享二维码">
+      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2020/11/17/Go-GMP%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90(%E4%BA%8C)/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -327,20 +311,15 @@
   
 <nav id="article-nav">
   
-    <a href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2021/01/04/Go-defer/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          从一个Go案例来了解僵尸进程
+          Go-defer原理及源码分析
         
       </div>
     </a>
   
-  
-    <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">Go 内存管理(四)逃逸分析</div>
-      <i class="icon-circle-right"></i>
-    </a>
   
 </nav>
 
@@ -365,7 +344,7 @@
                 </span>
                 <span class="tooltip-content">
                     <div class="toc-article">
-                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81GC"><span class="toc-number">1.</span> <span class="toc-text">一、GC</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%A0%87%E8%AE%B0-%E6%B8%85%E9%99%A4-mark-and-sweep-v1-3"><span class="toc-number">2.</span> <span class="toc-text">二、标记-清除(mark-and-sweep)(v1.3)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D"><span class="toc-number">2.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">2.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-v1-5"><span class="toc-number">3.</span> <span class="toc-text">三、三色标记(v1.5)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-1"><span class="toc-number">3.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-1"><span class="toc-number">3.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-%E6%B7%B7%E5%90%88%E5%86%99%E5%B1%8F%E9%9A%9C%E6%B3%95-v1-8"><span class="toc-number">4.</span> <span class="toc-text">四、三色标记+混合写屏障法(v1.8)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-2"><span class="toc-number">4.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-2"><span class="toc-number">4.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%95%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">引用</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">一、案例分析</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">二、源码分析</span></a></li></ol>
                     </div>
                 </span>
             </div>
@@ -379,7 +358,7 @@
   
   <div class="duoshuo">
 	<!-- 多说评论框 start -->
-	<div class="ds-thread" data-thread-key="Go-内存原理(五)GC" data-title="Go 内存管理(五)GC原理" data-url="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/"></div>
+	<div class="ds-thread" data-thread-key="Go-GMP源码分析(二)" data-title="Golang-Go关键字发生了什么" data-url="http://example.com/2020/11/17/Go-GMP%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90(%E4%BA%8C)/"></div>
 	<!-- 多说评论框 end -->
 	<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 	<script type="text/javascript">

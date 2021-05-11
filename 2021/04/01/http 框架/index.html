@@ -6,21 +6,33 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge" >
   <link rel="dns-prefetch" href="http://example.com">
-  <title>Go 内存管理(五)GC原理 | 小池的博客</title>
+  <title>net/http源码分析(一)Socket | 小池的博客</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta name="description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+  <meta name="description" content="本文代码均为golang 版本：go1.14.13   一、SocketSocket(套接字)，用来描述IP地址和端口，是通信链的句柄。应用程序可以通过socket向网络发送请求或者应答请求。Socket是支持TCP&#x2F;IP协议的网络通信的基本操作单元，是对通信端点的抽象表示，包含进行通信的所必须5种信息：连接使用的协议、本地IP&#x2F;端口、远端IP&#x2F;端口。 在应用程序中，socket对应一个描述符；">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Go 内存管理(五)GC原理">
-<meta property="og:url" content="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/index.html">
+<meta property="og:title" content="net&#x2F;http源码分析(一)Socket">
+<meta property="og:url" content="http://example.com/2021/04/01/http%20%E6%A1%86%E6%9E%B6/index.html">
 <meta property="og:site_name" content="小池的博客">
-<meta property="og:description" content="前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么? 一、GCGC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏 GC的算法随着go语言版本的更新而不断变化  goV1.3之前标记-清除(mark and sweep)算法 goV1.5三色标记法 goV1.8三色标记法+混合写屏障法">
+<meta property="og:description" content="本文代码均为golang 版本：go1.14.13   一、SocketSocket(套接字)，用来描述IP地址和端口，是通信链的句柄。应用程序可以通过socket向网络发送请求或者应答请求。Socket是支持TCP&#x2F;IP协议的网络通信的基本操作单元，是对通信端点的抽象表示，包含进行通信的所必须5种信息：连接使用的协议、本地IP&#x2F;端口、远端IP&#x2F;端口。 在应用程序中，socket对应一个描述符；">
 <meta property="og:locale" content="en_US">
-<meta property="article:published_time" content="2021-02-19T06:40:47.000Z">
-<meta property="article:modified_time" content="2021-05-10T09:07:12.986Z">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617246246766.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617246482775.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617272396716.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617269022573.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617272821322.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617272652847.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617273115776.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617269812887.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617270216620.png">
+<meta property="og:image" content="http://example.com/photo/bolgImg/1617273606670.png">
+<meta property="article:published_time" content="2021-04-01T06:40:47.000Z">
+<meta property="article:modified_time" content="2021-05-11T03:31:15.291Z">
 <meta property="article:author" content="小池">
 <meta property="article:tag" content="golang">
-<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="http">
+<meta property="article:tag" content="socket">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/photo/bolgImg/1617246246766.png">
   
     <link rel="alternative" href="/atom.xml" title="小池的博客" type="application/atom+xml">
   
@@ -152,70 +164,255 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            <article id="post-Go-内存原理(五)GC" class="article article-type-post " itemscope itemprop="blogPost">
+            <article id="post-http 框架" class="article article-type-post " itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 class="article-title" itemprop="name">
-      Go 内存管理(五)GC原理
+      net/http源码分析(一)Socket
     </h1>
   
 
         
-        <a href="/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" class="archive-article-date">
-  	<time datetime="2021-02-19T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-02-19</time>
+        <a href="/2021/04/01/http%20%E6%A1%86%E6%9E%B6/" class="archive-article-date">
+  	<time datetime="2021-04-01T06:40:47.000Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2021-04-01</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <p>前几章我们学习了Golang内存管理的基本原理。现在我们来看GC的基本原理是什么?</p>
-<h4 id="一、GC"><a href="#一、GC" class="headerlink" title="一、GC"></a>一、GC</h4><p>GC(Garbage Collection)提供自动内存管理机制，自动释放回收不使用的内存对象，防止内存泄漏</p>
-<p>GC的算法随着go语言版本的更新而不断变化</p>
-<blockquote>
-<p>goV1.3之前标记-清除(mark and sweep)算法</p>
-<p>goV1.5三色标记法</p>
-<p>goV1.8三色标记法+混合写屏障法</p>
+        <blockquote>
+<p>本文代码均为golang 版本：go1.14.13 </p>
 </blockquote>
+<h4 id="一、Socket"><a href="#一、Socket" class="headerlink" title="一、Socket"></a>一、Socket</h4><p>Socket(套接字)，用来描述IP地址和端口，是通信链的句柄。应用程序可以通过socket向网络发送请求或者应答请求。Socket是支持TCP/IP协议的网络通信的基本操作单元，是对通信端点的抽象表示，包含进行通信的所必须5种信息：连接使用的协议、本地IP/端口、远端IP/端口。</p>
+<p>在应用程序中，socket对应一个描述符；在内核中，它对应一个管理通信过程的对象(socket struct结构) 。在Linux系统内核中，struct socket结构对象不仅封装了管理通信过程的数据信息，而且封装了负责网络通信的功能函数。通过这些接口，应用程序触发系统调用来使用上述功能函数，从而访问网络服务。</p>
 <span id="more"></span>
 
-<p>我们将对以上算法进行原理剖析</p>
-<p>触发GC的条件：</p>
-<p>​    1）主动触发，用户代码中调用 runtime.GC 会主动触发 GC<br>​    2）默认每 2min 未产生 GC 时，golang 的守护协程 sysmon 会强制触发 GC<br>​    3）当 go 程序分配的内存增长超过阈值时，会触发 GC</p>
-<h4 id="二、标记-清除-mark-and-sweep-v1-3"><a href="#二、标记-清除-mark-and-sweep-v1-3" class="headerlink" title="二、标记-清除(mark-and-sweep)(v1.3)"></a>二、标记-清除(mark-and-sweep)(v1.3)</h4><h5 id="1、介绍"><a href="#1、介绍" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>从名字看就会有2个步骤，标记和清除</p>
-<p>​    1)  暂停程序运行(STW) 对可达的对象进行标记<br>​    2)  清除未标记的对象<br>​    3）停止暂停，程序继续</p>
-<p>引入STW(stop the world)是为了防止在标记过程中又发生了对象的引用，导致清除了正在使用的对象</p>
-<h5 id="2、优缺点"><a href="#2、优缺点" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>1）优点：简单<br>2）缺点：STW暂停程序，程序出现卡顿；标记需要扫描整个heap; 清除数据会产生碎片</p>
-<h4 id="三、三色标记-v1-5"><a href="#三、三色标记-v1-5" class="headerlink" title="三、三色标记(v1.5)"></a>三、三色标记(v1.5)</h4><h5 id="1、介绍-1"><a href="#1、介绍-1" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>在标记-清除方法上增加了中间状态：黑色-灰色-白色 以减少STW的时间</p>
-<p>黑色：已标记的对象，表示对象是跟对象的可达的</p>
-<p>灰色：被黑色引用的对象，灰色为标记过程的中间状态，当灰色对象全部标记为黑色表示标记阶段全部完成</p>
-<p>白色：未标记对象，在开始扫描时全部对象均为白色，若扫描完成后该节点还是白色，说明该对象不可达，在清除阶段会被清除</p>
-<p>最后，只有2中颜色，白色被清除，黑色被保留</p>
-<p><strong>过程</strong></p>
-<p>   1）开始时所有对象为白色<br>   2）将所有<strong>根对象</strong>标记为灰色，放入队列<br>   3）遍历灰色对象，将其标记为黑色，并将他们引用的对象标记为灰色，放入队列<br>   4）重复步骤 <em>3</em> 持续遍历灰色对象，直至队列为空<br>   5）此时只剩下黑色对象和白色对象，白色对象即为下一步需要清除的对象</p>
-<p>根对象指的是运行当前时刻的栈以及全局数据区域</p>
-<p>在三色标记中，减少了STW的时间。我们知道在三色标记中，增加了中间状态-灰色状态，这可以允许标记与用户代码并行执行，这里是怎么做到的呢，是因为三色标记加入了写屏障机制</p>
-<p>写屏障机制：黑色对象的内存槽有两种位置, 栈和堆. 栈空间的特点是容量小,但是要求相应速度快,因为函数调用弹出频繁使用, 所以“写屏障”机制,在<strong>栈空间的对象操作中不使用</strong>. 而仅仅使用在堆空间对象的操作中。写屏障简单来说也就是对于已标记的黑色对象（堆）由于并发特性添加了新对象(白色)，此时会触发写屏障，也就是会将添加的新对象标记为灰色，继续进行标记，最后标记完成后，刚刚标记的灰色也会变为黑色。这是对于堆而言。</p>
-<p>若对于栈中已标记的黑色对象由于并发特性添加了新对象(白色)。在所有的标记完成之后，可能对于栈上还会存在白色对象被引用的情况，这个时候需要STW重新扫描栈，标记栈上引用的白色对象为灰色，继续扫描标记为黑色。这次STW大约的时间在10~100ms间</p>
-<h5 id="2、优缺点-1"><a href="#2、优缺点-1" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><ol>
-<li> 优点：减少STW的时间</li>
-<li> 缺点：结束时需要STW来重新扫描栈，标记栈上引用的白色对象的存活</li>
-</ol>
-<h4 id="四、三色标记-混合写屏障法-v1-8"><a href="#四、三色标记-混合写屏障法-v1-8" class="headerlink" title="四、三色标记+混合写屏障法(v1.8)"></a>四、三色标记+混合写屏障法(v1.8)</h4><h5 id="1、介绍-2"><a href="#1、介绍-2" class="headerlink" title="1、介绍"></a>1、介绍</h5><p>避免了对栈重新扫描的过程，极大的减少了STW的时间。当然屏障技术的使用还是在堆上，要保证栈上的运行效率</p>
-<p>​    1）GC开始将栈上的对象全部扫描并标记为黑色(之后不再进行第二次重复扫描，无需STW)<br>​    2）GC期间，任何在栈上创建的新对象，均为黑色<br>​    3）堆中被删除的对象标记为灰色(这里被删除是指的是删除引用关系)<br>​    4）堆中被添加的对象标记为灰色(这里被添加是指的是添加引用关系)</p>
-<p>可见混合屏障只需要在开始时并发扫描各个goroutine的栈，使其变黑并一直保持，这个过程不需要STW，而标记结束后，因为栈在扫描后始终是黑色的，也无需再进行re-scan操作了，减少了STW的时间</p>
-<h5 id="2、优缺点-2"><a href="#2、优缺点-2" class="headerlink" title="2、优缺点"></a>2、优缺点</h5><p>几乎不需要STW的时间，效率更高</p>
-<h4 id="引用"><a href="#引用" class="headerlink" title="引用"></a>引用</h4><p>第一篇文章适合初次接触GC的童鞋阅读</p>
-<blockquote>
+<p>不同协议族有不同的套接字</p>
+<p><img src="/photo/bolgImg/1617246246766.png"></p>
+<p>其中：<code>SOCK_STREAM</code>，这类套接字采用了TCP协议服务，提供可靠的双工顺序数据流，能保证数据不丢失、不错序。 <code>SOCK_DGRAM</code>，这类套接字采用了UDP协议服务，提供双工数据传送，但不保证数据能可靠地到达。即使数据到达了，也不能保证顺序正确。</p>
+<p>对于Web客户/服务器使用INET套接字实现网络通信。</p>
+<p>Web服务器的大致工作流程为：首先，创建一个采用TCP协议服务的套接字（SOCK_STREAM套接字），并通过该套接字观察是否有客户连接请求，如果有连接请求，则服务器接收该请求，并建立新的套接字来表示与该客户的连接；然后，服务器通过这个新套接字把主页数据发给客户程序。</p>
+<p>Web客户程序的工作流程大致为：首先，创建一个采用TCP协议服务的套接字；然后，通过该套接字向Web服务器发出连接请求（请求中要指定Web服务器的IP地址和端口），如果服务器接收了连接请求，则客户程序通过该套接字获取服务器传来的网页文件，并通过浏览器显示出来；最后，如果准备退出，则客户程序将关闭与服务器的连接</p>
+<p>接下里详细讲解采用TCP协议传输网络数据，客户端和服务端的程序流程：</p>
+<p><img src="/photo/bolgImg/1617246482775.png"></p>
+<h5 id="1、服务器程序流程"><a href="#1、服务器程序流程" class="headerlink" title="1、服务器程序流程"></a>1、服务器程序流程</h5><ul>
+<li><p>socket()</p>
+<p>调用socket函数创建监听套接字（Golang代码）</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">socket</span><span class="params">(af <span class="keyword">int32</span>, typ <span class="keyword">int32</span>, protocol <span class="keyword">int32</span>)</span> <span class="params">(handle Handle, err error)</span></span> </span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>af</td>
+<td>协议族，应将INET套接字设置为AF_INET</td>
+</tr>
+<tr>
+<td>typ</td>
+<td>套接字的传输类型(SOCK_STREAM，TCP协议服务;SOCK_DGRAM,UDP服务)</td>
+</tr>
+<tr>
+<td>protocol</td>
+<td>特定协议，常为0</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>socket 句柄</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>bind()</p>
+<p>调用bind函数把监听套接字与某地址绑定</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">bind</span><span class="params">(s Handle, name unsafe.Pointer, namelen <span class="keyword">int32</span>)</span> <span class="params">(err error)</span></span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>s</td>
+<td>socket函数返回的套接字描述符</td>
+</tr>
+<tr>
+<td>name</td>
+<td>指向内核struct sockaddr的指针，包括协议族、IP、端口等</td>
+</tr>
+<tr>
+<td>namelen</td>
+<td>struct sockaddr的大小</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>nil成功</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>listen()</p>
+<p>服务器程序调用listen函数来观察本地端口，检查是否有客户程序的连接请求</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">listen</span><span class="params">(s Handle, backlog <span class="keyword">int32</span>)</span> <span class="params">(err error)</span></span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>s</td>
+<td>套接字描述符，它是服务器程序建立的用于监听客户连接请求的套接字</td>
+</tr>
+<tr>
+<td>backlog</td>
+<td>允许的连接个数。在服务器调用accept函数允许客户连接请求之前，客户需要排队等待</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>accept()</p>
+<p>客户程序调用connect函数请求连接服务器。监听到连接请求后，服务器把客户请求插入等待队列，直到调用accept函数允许该请求。这里的accept函数返回一个套接字描述符来标志双方的连接。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">accept</span><span class="params">(s <span class="keyword">int</span>, rsa *RawSockaddrAny, addrlen *_Socklen)</span> <span class="params">(fd <span class="keyword">int</span>, err error)</span></span> </span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>s</td>
+<td>监听套接字描述符</td>
+</tr>
+<tr>
+<td>rsa</td>
+<td>请求连接的客户地址信息</td>
+</tr>
+<tr>
+<td>addrlen</td>
+<td>地址长度</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>fd 返回一个描述符</td>
+</tr>
+</tbody></table>
+</li>
+</ul>
+<h5 id="2、客户程序流程"><a href="#2、客户程序流程" class="headerlink" title="2、客户程序流程"></a>2、客户程序流程</h5><ul>
+<li><p>socket()</p>
+<p>调用socket函数创建套接字；见客户端创建套接字的接口</p>
+</li>
+<li><p>connect()</p>
+<p>客户程序调用connect向服务器发起连接请求。如果采用TCP传输协议，函数connect将启动TCP的三次握手过程</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">connect</span><span class="params">(s Handle, name unsafe.Pointer, namelen <span class="keyword">int32</span>)</span><span class="params">(err error)</span></span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>s</td>
+<td>套接字描述符，它是连接请求方的套接字</td>
+</tr>
+<tr>
+<td>name</td>
+<td>服务器地址，指向存放对方地址的数据结构struct sockaddr（包括目的端口和IP地址信息）</td>
+</tr>
+<tr>
+<td>namelen</td>
+<td>地址解构的长度sockaddr的大小</td>
+</tr>
+</tbody></table>
+<p>以上就是socket提供给客户程序结构，供客户端与服务端进行通信。</p>
+</li>
+</ul>
+<h4 id="二、TCP"><a href="#二、TCP" class="headerlink" title="二、TCP"></a>二、TCP</h4><p>接下来详细学习TCP建立连接的流程。如下图：</p>
+<p><img src="/photo/bolgImg/1617272396716.png"></p>
+<p>在第一章节，学习了使用客户端和服务端是怎么使用socket的，server在创建socket之后，开始阻塞进行监听，是否有客户端进行连接。当有客户端进行TCP连接的时候，开始进行三次握手</p>
+<p>我们按照图上的序号顺序进行讲解：</p>
+<p>1、（第一次握手）客户端在connect()之后主动连接服务器，发送SYN，且序列号为x。此时客户端的状态为SYN_SENT</p>
+<p>2、服务端收到客户端的请求后，会根据本地半连接队列是否满进行不同的操作。</p>
+<p>​      服务器本地存有一个半连接队列(syn queue)。其大小由底层配置文件决定，可以看到默认是256个</p>
+<p><img src="/photo/bolgImg/1617269022573.png"></p>
 <ul>
-<li><p><a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzAxMTA4Njc0OQ==&mid=2651439356&idx=2&sn=264a3141ea9a4b29fe67ec06a17aeb99&chksm=80bb1e0eb7cc97181b81ae731d0d425dda1e9a8d503ff75f217a0d77bd9d0eb451555cb584a0&scene=21#wechat_redirect">Golang三色标记、混合写屏障GC模式图文全分析</a> </p>
+<li>​    半连接队列没满</li>
+</ul>
+<p>​    服务器将该连接的状态设置为SYN_RCVD，并把连接信息放到半连接队列里面</p>
+<ul>
+<li>​    半连接队列已满</li>
+</ul>
+<p>​    服务器不会将该连接的状态变为SYN_RCVD，且将该连接丢弃。</p>
+<blockquote>
+<p>SYN flood攻击就是利用这个原理。攻击方的客户端只发送SYN分节给服务器，然后对服务器发回来的SYN+ACK什么也不做，直接忽略掉， 不发送ACK给服务器；这样就可以占据着服务器的半连接队列的资源，导致正常的客户端连接无法连接上服务器。</p>
+</blockquote>
+<p>但是若队列设置的较小，就会有大量的请求都会被丢弃，此时应对的方法是syncookies</p>
+<p>syncookies 的工作原理：服务器根据当前状态计算出一个值，放在服务器发出的 SYN+ACK 报文中发出，当客户端返回 ACK 报文时，取出该值验证，如果合法，就认为连接建立成功。</p>
+<p>开启 syncookies 功能<br>syncookies 参数主要有以下三个值：</p>
+<ul>
+<li>0 值，表示关闭该功能；</li>
+<li>1 值，表示仅当 SYN 半连接队列放不下时，再启用它；</li>
+<li>2 值，表示无条件开启功能；</li>
+</ul>
+<p>查看机器syncookies的值为1，默认开启syncookies</p>
+<p><img src="/photo/bolgImg/1617272821322.png"></p>
+<p>若客户端长时间没有收到 SYN+ACK 报文，则会重发 SYN 包，重发的次数由 tcp_syn_retries 参数控制，内核参数是6次。</p>
+<p><img src="/photo/bolgImg/1617272652847.png"></p>
+<p>通常，第一次超时重传是在 1 秒后，第二次超时重传是在 2 秒，第三次超时重传是在 4 秒后，第四次超时重传是在 8 秒后，第五次是在超时重传 16 秒后，第六次是在超时重传 32秒后。如果仍然服务端没有回应 ACK，客户端就会终止三次握手。</p>
+<p>3、（第二次握手）服务器返回SYN y，ACK x+1。ACK表示对客户端请求的应答，新发送SYN的序列号y。客户端的状态从SYN_SENT变为ESTABLISHED</p>
+<p>当网络繁忙、不稳定时，报文丢失就会变严重。此时会重发SYN+ACK包</p>
+<p>内核参数tcp_synack_retries控制SYN+ACK包重传的次数，默认是5次。</p>
+<p><img src="/photo/bolgImg/1617273115776.png"></p>
+<p>的重传会经历 1、2、4、8、16 秒，最后一次重传后会继续等待 32 秒，如果服务端仍然没有收到 ACK，才会关闭连接，故共需要等待 63 秒。</p>
+<p>4、（第三次握手）客户端发送ACK y+1。表示对服务端的响应。</p>
+<p>5、服务端收到客户端的响应之后，按照本地的全连接队列(accept queue)是否满进行处理</p>
+<p>​    全连接队列最大值，系统设置默认值为128。</p>
+<p><img src="/photo/bolgImg/1617269812887.png"></p>
+<p>​     但全连接的最大值=min(backlog，somaxconn)，这里的backlog是connect的入参。</p>
+<ul>
+<li> 全连接队列没满</li>
+</ul>
+<p>  服务端接受客户端的ACK，从状态SYN_RCVD变为ESTABLISHED，然后服务器从半连接队列(syn queue)拿出连接放到本地的全连接队列(accept queue)</p>
+<p>  全连接队列已满</p>
+<p>  服务端收到客户端的ACK，不会改变状态。</p>
+<p>  根据内核参数tcp_abort_on_overflow 的值执行相应动作</p>
+<p>  <img src="/photo/bolgImg/1617270216620.png"></p>
+<p>  0值表示：如果 accept 队列满了，那么 server 扔掉 client  发过来的 ack </p>
+<p>  1值表示：如果 accept 队列满了，server 发送一个 RST 包给 client，表示废掉这个握手过程和这个连接，Client会出现(connection reset by peer)错误</p>
+<p>  注意：connect() 函数在三次握手成功之后会返回成功或者超时失败。</p>
+<p>  查看服务端accept队列的长度：</p>
+<p>  通过 ss -ltn 查看</p>
+<p>  -l 显示正在监听的socket</p>
+<p>  -n 不解析服务的名称</p>
+<p>  -t 只显示tcp socket</p>
+<ul>
+<li>Recv-Q：当前 accept 队列的大小，也就是当前已完成三次握手并等待服务端 <code>accept()</code> 的 TCP 连接；</li>
+<li>Send-Q：accept 队列最大长度，上面的输出结果说明监听 8088 端口的 TCP 服务，accept 队列的最大长度为 128；</li>
+</ul>
+<p>  <img src="/photo/bolgImg/1617273606670.png"></p>
+<p>​     </p>
+<h4 id="三、引用"><a href="#三、引用" class="headerlink" title="三、引用"></a>三、引用</h4><blockquote>
+<ul>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/qq_20398345/article/details/81132207">TCP网络编程</a></p>
 </li>
-<li><p><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/cfc669f83eaa">golang的gc原理</a></p>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/jun2016425/article/details/81506353">TCP三次握手详解-深入浅出</a></p>
 </li>
-<li><p><a target="_blank" rel="noopener" href="https://juejin.cn/post/6844903917650722829">搞懂垃圾回收</a></p>
+<li><p><a target="_blank" rel="noopener" href="https://www.runoob.com/w3cnote/android-tutorial-socket1.html">基于TCP协议的Socket通信</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://blog.csdn.net/kexuanxiu1163/article/details/107218307/">TCP参数</a></p>
 </li>
 </ul>
 </blockquote>
@@ -257,7 +454,11 @@
         		</li>
       		 
         		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">内存管理</a>
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">http</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color2">socket</a>
         		</li>
       		
 		</ul>
@@ -313,7 +514,7 @@
     <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
     <p>扫一扫，分享到微信</p>
     <div class="wx-qrcode">
-      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/" alt="微信分享二维码">
+      <img src="//pan.baidu.com/share/qrcode?url=http://example.com/2021/04/01/http%20%E6%A1%86%E6%9E%B6/" alt="微信分享二维码">
     </div>
 </div>
 
@@ -327,18 +528,18 @@
   
 <nav id="article-nav">
   
-    <a href="/2021/02/22/%E4%BB%8EGolang%E6%9D%A5%E4%BA%86%E8%A7%A3%E5%AD%A4%E5%84%BF%E8%BF%9B%E7%A8%8B/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2021/04/06/Golang%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%E4%B9%8Bnethttp(%E4%BA%8C)/" id="article-nav-newer" class="article-nav-link-wrap">
       <i class="icon-circle-left"></i>
       <div class="article-nav-title">
         
-          从一个Go案例来了解僵尸进程
+          net/http源码分析(二)源码
         
       </div>
     </a>
   
   
-    <a href="/2021/02/03/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E5%9B%9B)/" id="article-nav-older" class="article-nav-link-wrap">
-      <div class="article-nav-title">Go 内存管理(四)逃逸分析</div>
+    <a href="/2021/03/26/Go-map%E4%B8%8Esync.map/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">Go-map底层原理</div>
       <i class="icon-circle-right"></i>
     </a>
   
@@ -365,7 +566,7 @@
                 </span>
                 <span class="tooltip-content">
                     <div class="toc-article">
-                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81GC"><span class="toc-number">1.</span> <span class="toc-text">一、GC</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%A0%87%E8%AE%B0-%E6%B8%85%E9%99%A4-mark-and-sweep-v1-3"><span class="toc-number">2.</span> <span class="toc-text">二、标记-清除(mark-and-sweep)(v1.3)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D"><span class="toc-number">2.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">2.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-v1-5"><span class="toc-number">3.</span> <span class="toc-text">三、三色标记(v1.5)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-1"><span class="toc-number">3.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-1"><span class="toc-number">3.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0-%E6%B7%B7%E5%90%88%E5%86%99%E5%B1%8F%E9%9A%9C%E6%B3%95-v1-8"><span class="toc-number">4.</span> <span class="toc-text">四、三色标记+混合写屏障法(v1.8)</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E4%BB%8B%E7%BB%8D-2"><span class="toc-number">4.1.</span> <span class="toc-text">1、介绍</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E4%BC%98%E7%BC%BA%E7%82%B9-2"><span class="toc-number">4.2.</span> <span class="toc-text">2、优缺点</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BC%95%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">引用</span></a></li></ol>
+                    <ol class="toc"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E3%80%81Socket"><span class="toc-number">1.</span> <span class="toc-text">一、Socket</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#1%E3%80%81%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%A8%8B%E5%BA%8F%E6%B5%81%E7%A8%8B"><span class="toc-number">1.1.</span> <span class="toc-text">1、服务器程序流程</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#2%E3%80%81%E5%AE%A2%E6%88%B7%E7%A8%8B%E5%BA%8F%E6%B5%81%E7%A8%8B"><span class="toc-number">1.2.</span> <span class="toc-text">2、客户程序流程</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BA%8C%E3%80%81TCP"><span class="toc-number">2.</span> <span class="toc-text">二、TCP</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%BC%95%E7%94%A8"><span class="toc-number">3.</span> <span class="toc-text">三、引用</span></a></li></ol>
                     </div>
                 </span>
             </div>
@@ -379,7 +580,7 @@
   
   <div class="duoshuo">
 	<!-- 多说评论框 start -->
-	<div class="ds-thread" data-thread-key="Go-内存原理(五)GC" data-title="Go 内存管理(五)GC原理" data-url="http://example.com/2021/02/19/Go-%E5%86%85%E5%AD%98%E5%8E%9F%E7%90%86(%E4%BA%94)GC/"></div>
+	<div class="ds-thread" data-thread-key="http 框架" data-title="net/http源码分析(一)Socket" data-url="http://example.com/2021/04/01/http%20%E6%A1%86%E6%9E%B6/"></div>
 	<!-- 多说评论框 end -->
 	<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 	<script type="text/javascript">
